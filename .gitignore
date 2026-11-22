@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Segredos — nunca versionar
+.env
+.env.*
+!.env.example
+*service-account*.json
+credenciais/
