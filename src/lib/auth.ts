@@ -13,7 +13,7 @@ const DURACAO_S = 60 * 60 * 24 * 7; // 7 dias
 /** Quais perfis acessam cada área. */
 export const ACESSO: Record<string, Perfil[]> = {
   "/gestor": ["gestor"],
-  "/ranking": ["gestor", "vendedor"],
+  "/ranking": ["gestor"],
   "/estoque": ["gestor", "vendedor", "preparador"],
   "/preparacao": ["gestor", "vendedor", "preparador"],
   "/preparacao/nova": ["gestor", "preparador"],

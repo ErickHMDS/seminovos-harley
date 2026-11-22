@@ -9,6 +9,7 @@ import { config } from "@/lib/config";
 import { emailsCoordenadores } from "@/lib/configuracoes";
 import { rotuloAba } from "@/lib/lojas";
 import { motoPorPlaca } from "@/lib/estoque";
+import { linkPasta, pastaDaPlaca } from "@/lib/drive";
 import { ETAPAS, getItem } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 import { EmailCard } from "../EmailCard";
@@ -47,6 +48,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   // vendedor não vê a tela de cadastro: abre a ficha da moto (ou um resumo, se ainda não está no estoque)
   if (perfil === "vendedor" && moto) redirect(`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`);
   const soLeitura = perfil === "vendedor";
+  const pasta = !soLeitura && item.placa ? await pastaDaPlaca(item.placa).catch(() => null) : null;
 
   return (
     <>
@@ -60,6 +62,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             {item.responsavel && <> · {item.responsavel}</>}
           </p>
           {moto && <Link href={`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`} className="btn small ghost" style={{ marginTop: 10 }}>Ficha e fotos da moto →</Link>}
+          {pasta && <a href={linkPasta(pasta.id)} target="_blank" rel="noopener noreferrer" className="btn small ghost" style={{ marginTop: 10, marginLeft: 8 }}>Pasta de fotos no Drive ↗</a>}
         </div>
       </div>
 

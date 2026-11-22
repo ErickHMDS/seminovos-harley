@@ -11,12 +11,12 @@ import { leadsVisiveis, semSyonet } from "@/lib/leads";
 import { sessaoAtual } from "@/lib/sessao";
 import { sair } from "../actions";
 
-type Item = NavItem & { soDesktopPara?: Perfil[]; menuPara?: Perfil[] };
+type Item = NavItem & { soDesktopPara?: Perfil[]; menuPara?: Perfil[]; ocultoPara?: Perfil[] };
 const ITENS: Item[] = [
   { href: "/gestor", label: "Gestor", short: "Painel", icon: "gestor" },
   { href: "/meta", label: "Minha meta", short: "Meta", icon: "meta", soDesktopPara: ["gestor"], menuPara: ["gestor"] },
   { href: "/ranking", label: "Ranking", short: "Ranking", icon: "ranking", soDesktopPara: ["gestor"] },
-  { href: "/preparacao", label: "Preparação", short: "Preparo", icon: "preparacao", soDesktopPara: ["vendedor"] },
+  { href: "/preparacao", label: "Preparação", short: "Preparo", icon: "preparacao", ocultoPara: ["vendedor"] },
   { href: "/estoque", label: "Estoque", short: "Estoque", icon: "estoque" },
   { href: "/leads", label: "Leads", short: "Leads", icon: "leads" },
   { href: "/atividades", label: "Atividades", short: "Tarefas", icon: "atividades" },
@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       : perfil === "vendedor"
         ? (await leadsVisiveis(sessao).catch(() => [])).filter(semSyonet).length
         : 0;
-  const itens: NavItem[] = ITENS.filter((i) => podeAcessar(perfil, i.href)).map(({ soDesktopPara, menuPara, ...i }) => ({
+  const itens: NavItem[] = ITENS.filter((i) => podeAcessar(perfil, i.href) && !i.ocultoPara?.includes(perfil)).map(({ soDesktopPara, menuPara, ocultoPara: _o, ...i }) => ({
     ...i,
     label: i.href === "/meta" && perfil === "gestor" ? "Metas" : i.label,
     desktopOnly: i.desktopOnly || (soDesktopPara?.includes(perfil) ?? false),

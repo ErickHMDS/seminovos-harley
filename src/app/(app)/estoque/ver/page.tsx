@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ChecklistResumo } from "@/components/ChecklistResumo";
 import { getMoto, motoPorPlaca } from "@/lib/estoque";
 import { armazenamentoConfigurado, fotosDaPlaca } from "@/lib/fotos";
-import { pastaConfigurada } from "@/lib/drive";
+import { linkPasta, pastaConfigurada, pastaDaPlaca } from "@/lib/drive";
 import { fmt } from "@/lib/parse";
 import { checklistPorPlaca, getPreparacao } from "@/lib/preparacao";
 import { exigirSessao } from "@/lib/sessao";
@@ -53,7 +53,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
         {gestor && <Link href={`/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`} className="btn small ghost">Editar dados</Link>}
       </div>
       <div className="ficha">
-        <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado()} drive={!!(await pastaConfigurada().catch(() => null))} />
+        <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado()} drive={!!(await pastaConfigurada().catch(() => null))} pastaDrive={s.perfil !== "vendedor" ? await pastaDaPlaca(m.placa).then((p) => (p ? linkPasta(p.id) : null)).catch(() => null) : null} />
         <div className="ficha-info">
           <div className="eyebrow">{[m.fabricante, m.tipo].filter(Boolean).join(" · ") || "Seminovo"}</div>
           <h1 className="ficha-titulo">{m.modelo}</h1>

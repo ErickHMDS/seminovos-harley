@@ -2,7 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import { JWT } from "google-auth-library";
 
-const SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.readonly"];
+const SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"];
 const API = process.env.SHEETS_API_BASE || "https://sheets.googleapis.com/v4/spreadsheets";
 
 type ServiceAccount = { client_email: string; private_key: string };

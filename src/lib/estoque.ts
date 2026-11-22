@@ -202,6 +202,8 @@ export async function salvarMoto(aba: string, linha: number | null, placaOrigina
     .map(({ c, tipo, v }) => ({ range: range(aba, `${colLetra(c)}${alvo}`), values: [[celula(tipo, v)]] }));
   await batchUpdateValues(config.estoqueId, data);
   invalidate("estoque");
+  // moto nova: cria a pasta de fotos dela no Google Drive (se configurado)
+  if (!linha) await (await import("./drive")).pastaAutomatica(m.placa, m.modelo);
   return alvo;
 }
 

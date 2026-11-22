@@ -19,10 +19,10 @@ const FAIXAS = [
 const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 type Ordem = "dias" | "preco" | "modelo" | "margem";
 
-export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {}, inicial = {} }: {
+export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {}, inicial = {}, resumo = true }: {
   motos: Moto[]; verCusto: boolean; editar: boolean; emPreparacao: Record<string, string>; buscaInicial?: string;
   checklists?: Record<string, ResumoChecklist>; capas?: Record<string, string>;
-  inicial?: { faixa?: string; cidade?: string; marca?: string };
+  inicial?: { faixa?: string; cidade?: string; marca?: string }; resumo?: boolean;
 }) {
   const router = useRouter();
   const [ckAberto, setCkAberto] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
 
   return (
     <>
-      <div className="grid grid-kpi kpi-strip">
+      {resumo && <div className="grid grid-kpi kpi-strip">
         <div className="kpi accent"><div className="kpi-label">Motos</div><div className="kpi-value">{lista.length}</div><div className="kpi-sub">{naoAnunciadas} sem anúncio</div></div>
         <div className="kpi"><div className="kpi-label">Idade média</div><div className="kpi-value">{idadeMedia}<small> dias</small></div></div>
         <div className={`kpi ${acima90 ? "bad" : ""}`}><div className="kpi-label">+ de 90 dias</div><div className="kpi-value">{acima90}</div><div className="kpi-sub">{fmt.pct(lista.length ? acima90 / lista.length : null)} do estoque</div></div>
@@ -118,7 +118,7 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
         ) : (
           <div className="kpi"><div className="kpi-label">Valor anunciado</div><div className="kpi-value money">{fmt.brl(precoTotal)}</div></div>
         )}
-      </div>
+      </div>}
 
       <div className="search-row">
         <div className="search-box">

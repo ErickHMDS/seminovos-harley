@@ -159,6 +159,8 @@ export async function criar(dados: Partial<Record<Campo, string>>): Promise<stri
   for (const c of CAMPOS) if (idx[c] >= 0 && valores[c] != null) linha[idx[c]] = seguro(String(valores[c]));
   await appendValues(config.estoqueId, range(config.preparacaoAba, "A1"), [linha]);
   invalidate("preparacao");
+  // a pasta de fotos no Drive já nasce na recepção, para o preparador só subir as fotos
+  if (valores.placa) await (await import("./drive")).pastaAutomatica(valores.placa, valores.modelo ?? "");
   return id;
 }
 

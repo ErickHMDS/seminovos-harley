@@ -21,7 +21,7 @@ async function reduzir(arquivo: File): Promise<Blob> {
   return await new Promise<Blob>((ok) => c.toBlob((b) => ok(b ?? arquivo), "image/jpeg", 0.84));
 }
 
-export function Galeria({ fotos, placa, editar, modelo, armazenamento, drive = false }: { fotos: Foto[]; placa: string; editar: boolean; modelo: string; armazenamento: boolean; drive?: boolean }) {
+export function Galeria({ fotos, placa, editar, modelo, armazenamento, drive = false, pastaDrive = null }: { fotos: Foto[]; placa: string; editar: boolean; modelo: string; armazenamento: boolean; drive?: boolean; pastaDrive?: string | null }) {
   const router = useRouter();
   const [i, setI] = useState(0);
   const [cheia, setCheia] = useState(false);
@@ -101,6 +101,7 @@ export function Galeria({ fotos, placa, editar, modelo, armazenamento, drive = f
               <Icon name="fotos" size={15} /> {pending ? "Procurando no Drive…" : "Importar do Google Drive"}
             </button>
           )}
+          {drive && pastaDrive && <a href={pastaDrive} target="_blank" rel="noopener noreferrer" className="link-more">pasta no Drive ↗</a>}
           <form className="galeria-link" onSubmit={(e) => { e.preventDefault(); setErro(""); setMsg(""); const fd = new FormData(); fd.set("placa", placa); fd.set("link", link); start(async () => { const r = await enviarFotoAction(fd); if (r.erro) setErro(r.erro); else { setLink(""); router.refresh(); } }); }}>
             <input className="input" placeholder="ou cole o link de uma foto ou pasta do Drive" value={link} onChange={(e) => setLink(e.target.value)} />
             <button className="btn small ghost" disabled={pending || !link}>Adicionar</button>

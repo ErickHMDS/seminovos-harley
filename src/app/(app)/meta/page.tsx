@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { Fab } from "@/components/Fab";
+import { Icon } from "@/components/Icon";
+import { VendasLista } from "@/components/VendasLista";
 import { getEstoque } from "@/lib/estoque";
 import { TZ, monthLabel, shortName } from "@/lib/parse";
 import { exigirSessao } from "@/lib/sessao";
@@ -26,10 +29,11 @@ function diasDeLoja(mes: string) {
 }
 
 const taxa = (n: number, d: number) => (d ? n / d : 0);
+const SALVO: Record<string, string> = { lancada: "Venda lançada na planilha.", editada: "Venda atualizada." };
 
-export default async function MetaPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
+export default async function MetaPage({ searchParams }: { searchParams: Promise<{ v?: string; salvo?: string }> }) {
   const s = await exigirSessao("/meta");
-  const { v } = await searchParams;
+  const { v, salvo } = await searchParams;
   const base = await getVendas();
   const mes = base.meses[0];
   const doMes = base.vendas.filter((x) => x.mes === mes);
@@ -84,6 +88,7 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
   const ativos = meusLeads.filter((l) => !["VENDIDO", "PERDIDO"].includes(l.status));
   const oportunidades = meusLeads.filter((l) => l.matches.length);
   const retornos = meusLeads.filter((l) => l.retornoHoje);
+  const minhasDoMes = doMes.filter((x) => x.vendedor === alvo).sort((a, b) => (b.data ?? "").localeCompare(a.data ?? ""));
   const aFaturar = doMes.filter((x) => x.vendedor === alvo && x.conta && !x.faturada);
   const { motos } = await getEstoque().catch(() => ({ motos: [] as Awaited<ReturnType<typeof getEstoque>>["motos"] }));
   const paradas = motos.filter((m) => (m.dias ?? 0) > 60 && m.anunciada).slice(0, 4);
@@ -107,13 +112,26 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
           <div className="eyebrow">{s.perfil === "gestor" ? "Metas da equipe" : "Minha meta"} · {monthLabel(mes)}</div>
           <h1>{s.perfil === "gestor" ? eu.nome : `Bora, ${eu.nome.split(" ")[0]}!`}</h1>
         </div>
+        {s.perfil === "vendedor" && <Link href="/vendas/nova" className="btn desktop-only"><Icon name="plus" size={16} /> Lançar venda</Link>}
         {s.perfil === "gestor" && (
           <div className="chips scroll" style={{ maxWidth: "100%" }}>
             {rank.map((r) => <Link key={r.vendedor} href={`/meta?v=${encodeURIComponent(r.vendedor)}`} className={`chip ${r.vendedor === alvo ? "active" : ""}`} scroll={false}>{r.nome}</Link>)}
           </div>
         )}
       </div>
+      {salvo && SALVO[salvo] && <div className="alert ok toast" role="status">{SALVO[salvo]}</div>}
       <MetaView d={data} />
+
+      <section className="meta-vendas">
+        <div className="panel-head">
+          <h2>{s.perfil === "gestor" ? `Vendas de ${eu.nome}` : "Minhas vendas"} · {monthLabel(mes)}</h2>
+          <span className="hint">{minhasDoMes.length} lançamento(s){minhasDoMes.length ? " · toque para editar" : ""}</span>
+        </div>
+        {minhasDoMes.length ? <VendasLista lista={minhasDoMes} mostrarVendedor={false} mostrarCliente /> : (
+          <div className="empty-state"><div className="empty-icon">🏍️</div><strong>Nenhuma venda lançada neste mês</strong><span>Use “Lançar venda” quando fechar a próxima.</span></div>
+        )}
+      </section>
+      {s.perfil === "vendedor" && <Fab href="/vendas/nova" label="Lançar venda" />}
     </>
   );
 }

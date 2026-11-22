@@ -1,5 +1,5 @@
 "use server";
-import { exigirPerfil } from "@/lib/sessao";
+import { exigirPerfil, exigirSessao } from "@/lib/sessao";
 import { editarVenda, excluirVenda, lancarVenda, type VendaInput } from "@/lib/vendas";
 import { date, monthKey } from "@/lib/parse";
 
@@ -27,8 +27,14 @@ const falha = (e: unknown): VendaState => {
 };
 
 export async function salvarVenda(_: VendaState, form: FormData): Promise<VendaState> {
-  await exigirPerfil("/vendas");
+  const sess = await exigirSessao("/vendas");
   const v = ler(form);
+  // vendedor lança e edita só as próprias vendas
+  const proprio = sess.perfil === "vendedor" ? sess.vendedor : null;
+  if (proprio) {
+    v.vendedor = proprio;
+    if (form.get("aba") && String(form.get("orig_vendedor")) !== proprio) return { erro: "Você só pode editar as suas vendas." };
+  }
   if (!date(v.data)) return { erro: "Informe a data da venda." };
   if (!v.vendedor) return { erro: "Escolha o vendedor." };
   if (!v.veiculo) return { erro: "Informe o veículo." };
@@ -44,7 +50,8 @@ export async function salvarVenda(_: VendaState, form: FormData): Promise<VendaS
   } catch (e) {
     return falha(e);
   }
-  return { destino: `/ranking?mes=${monthKey(date(v.data)!)}&salvo=${aba ? "editada" : "lancada"}`, n: Date.now() };
+  const salvo = aba ? "editada" : "lancada";
+  return { destino: sess.perfil === "vendedor" ? `/meta?salvo=${salvo}` : `/ranking?mes=${monthKey(date(v.data)!)}&salvo=${salvo}`, n: Date.now() };
 }
 
 export async function apagarVenda(aba: string, linha: number, original: { vendedor: string; veiculo: string; pedido: string }, mes: string): Promise<VendaState> {

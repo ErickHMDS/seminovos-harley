@@ -1049,3 +1049,5 @@ a.match-top:hover strong { color: var(--accent-hot); }
 .match-ir { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
 a.match-top:hover .match-ir { color: var(--accent-hot); }
 .galeria-acoes .galeria-link { flex: 1 1 100%; }
+
+.meta-vendas { margin-top: 28px; }

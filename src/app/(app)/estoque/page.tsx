@@ -38,7 +38,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
       </div>
       {sp.salvo && SALVO[sp.salvo] && <div className="alert ok toast" role="status">{SALVO[sp.salvo]}</div>}
       <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} editar={editar} emPreparacao={emPreparacao} buscaInicial={sp.salvo && sp.salvo !== "removida" ? sp.q ?? "" : ""} checklists={checklists} capas={fotos}
-        key={`${sp.faixa ?? ""}|${sp.cidade ?? ""}|${sp.marca ?? ""}`} inicial={{ faixa: sp.faixa, cidade: sp.cidade, marca: sp.marca }} />
+        key={`${sp.faixa ?? ""}|${sp.cidade ?? ""}|${sp.marca ?? ""}`} inicial={{ faixa: sp.faixa, cidade: sp.cidade, marca: sp.marca }} resumo={perfil !== "vendedor"} />
       {editar && <Fab href="/estoque/moto" label="Nova moto" />}
     </>
   );

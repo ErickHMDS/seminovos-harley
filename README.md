@@ -10,12 +10,12 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 | Área | Quem acessa | O que faz |
 |---|---|---|
 | **Painel (Gestor)** | Gestor | Vendas × meta, histórico, idade do estoque, margem, motos paradas, vendas a faturar, preparação e atividades abertas. |
-| **Ranking** | Gestor, Vendedor | Ranking por vendedor (mês/ano, loja). **Lançar, editar e excluir vendas.** |
+| **Ranking** | Gestor | Ranking por vendedor (mês/ano, loja). **Lançar, editar e excluir vendas.** |
 | **Preparação** | Gestor e Preparador editam; Vendedor vê | Quadro com 4 etapas. **Checklist 360 (OK/Pendente)**, e-mail pronto para os coordenadores ao concluir a inspeção. |
 | **Estoque** | Todos (custo/margem e edição só Gestor) | Busca e filtros. **Gestor adiciona, edita e remove motos.** |
 | **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
 | **Catálogo** | Gestor | Marcas e modelos (tipo, cilindrada, anos, apelidos) e **segmentos de equivalência** entre marcas. Base do autocompletar e dos leads. |
-| **Minha meta** | Vendedor (gestor vê de todos) | Anel da meta, ritmo por dia de loja, projeção, distância no ranking, FIN/G.E/usado × equipe, histórico e plano do dia. |
+| **Minha meta** | Vendedor (gestor vê de todos) | Tela inicial do vendedor: **Lançar venda** e tabela com as vendas dele no mês. Anel da meta, ritmo por dia de loja, projeção, distância no ranking, FIN/G.E/usado × equipe, histórico e plano do dia. |
 | **Tarefas / Atividades** | Vendedor: leads sem Syonet. Gestor: cobrança por vendedor (uma linha, prioridade pela quantidade; "Cobrei" esconde por 24 h) + pendências da 360 | |
 | **Leads** | Vendedor (só os seus), Gestor (todos) | Cliente + moto desejada. Oportunidades quando entra no estoque/preparação a moto exata ou equivalente; ligar, WhatsApp com mensagem pronta, registrar contato, retornos do dia. |
 | **Cadastro** | Gestor | Equipe com senha individual (vendedor, preparador, gestor), redefinir senha/desativar, vínculo com o vendedor da planilha, e-mails dos coordenadores. |
@@ -47,7 +47,7 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 
 ## Fotos das motos
 
-- **Google Drive (recomendado):** crie uma pasta (ex.: "Fotos Motos") com **uma subpasta por moto com a placa no nome** (ex.: `ABC1D23 - Fat Boy`; pode haver um nível de agrupamento, ex.: `Londrina/ABC1D23`, e subpastas como `oficiais`). Compartilhe a pasta como **Leitor** com o e-mail da conta de serviço e cole o link em **Cadastro → Fotos no Google Drive**. Na ficha da moto, **Importar do Google Drive** traz as imagens (sem duplicar). Também dá para colar o link de uma pasta/foto do Drive. O app lê o arquivo com a conta de serviço e entrega reduzido (`/api/drive/<id>`), sem deixar nada público.
+- **Google Drive (recomendado):** pasta "Fotos Motos" compartilhada como **Editor** com o e-mail da conta de serviço e informada em **Cadastro → Fotos no Google Drive**. O app **cria sozinho a subpasta de cada moto** (`PLACA - MODELO`) quando ela é recebida na preparação ou cadastrada no estoque; o botão "Criar pastas das motos do estoque" cria as que faltam. O preparador sobe as fotos na pasta (pelo app do Drive no celular) e, na ficha da moto, **Importar do Google Drive** traz as imagens (sem duplicar). O app lê com a conta de serviço e entrega reduzido (`/api/drive/<id>`), sem deixar nada público.
 - **Envio direto:** arquivos no **Vercel Blob** (na Vercel: Storage → Create → Blob → conectar ao projeto; cria `BLOB_READ_WRITE_TOKEN`). As fotos são reduzidas no navegador (máx. 1600 px).
 - Os endereços ficam na aba `Fotos` da planilha do app. Também é possível adicionar foto por link.
 

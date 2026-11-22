@@ -6,6 +6,7 @@ import { Kpi, Progress } from "@/components/ui";
 import { fmt, monthLabel } from "@/lib/parse";
 import { exigirPerfil } from "@/lib/sessao";
 import { getVendas, ranking, resumo } from "@/lib/vendas";
+import { VendasLista } from "@/components/VendasLista";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +18,6 @@ const LOJAS = [
 
 const SALVO: Record<string, string> = { lancada: "Venda lançada na planilha.", editada: "Venda atualizada.", excluida: "Lançamento excluído." };
 
-const SIT: Record<string, { txt: string; tom: string }> = {
-  FATURADO: { txt: "faturado", tom: "ok" },
-  ESTOQUE: { txt: "aguardando faturar", tom: "warn" },
-  TRANSFERENCIA: { txt: "transferência", tom: "" },
-  CANCELADA: { txt: "cancelada", tom: "bad" },
-};
 
 export default async function RankingPage({ searchParams }: { searchParams: Promise<{ mes?: string; loja?: string; salvo?: string }> }) {
   const perfil = await exigirPerfil("/ranking");
@@ -45,7 +40,6 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
   const q = (p: Record<string, string>) => `?${new URLSearchParams({ ...(sel ? { mes: sel } : {}), ...(loja ? { loja } : {}), ...p })}`;
   const pct = (n: number) => (r.total ? fmt.pct(n / r.total) : "—");
   const lista = [...doPeriodo].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || b.linha - a.linha);
-  const editarHref = (v: (typeof lista)[number]) => `/vendas/editar?${new URLSearchParams({ aba: v.aba, linha: String(v.linha) })}`;
 
   return (
     <>
@@ -160,59 +154,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
         <section style={{ marginTop: 28 }}>
           <div className="panel-head"><h2>Lançamentos</h2><span className="hint">{lista.length} · toque para editar</span></div>
 
-          <ul className="sale-list mobile-only">
-            {lista.map((v) => {
-              const s = SIT[v.situacao] ?? { txt: v.situacao.toLowerCase(), tom: "" };
-              return (
-                <li key={v.id}>
-                  <Link href={editarHref(v)} className="sale-card">
-                    <div className="sale-top">
-                      <strong>{v.veiculo || "—"}</strong>
-                      <span className={`badge ${s.tom}`}>{s.txt}</span>
-                    </div>
-                    <div className="sale-meta">
-                      <span>{fmt.date(v.data ? new Date(v.data) : null).slice(0, 5)}</span>
-                      <span>{v.vendedorCurto}</span>
-                      <span>{v.loja === "TRIUMPH" ? "Triumph" : "Harley"}</span>
-                      {v.placa && <span className="plate">{v.placa}</span>}
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="table-wrap desktop-only">
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th><th>Vendedor</th><th>Loja</th><th>Veículo</th><th>Placa</th>
-                  {perfil === "gestor" && <th>Cliente</th>}
-                  <th>Situação</th><th className="c">FIN</th><th className="c">G.E</th><th className="c">Usado</th><th />
-                </tr>
-              </thead>
-              <tbody>
-                {lista.map((v) => {
-                  const s = SIT[v.situacao] ?? { txt: v.situacao.toLowerCase(), tom: "" };
-                  return (
-                    <tr key={v.id} className="row-link">
-                      <td className="num">{fmt.date(v.data ? new Date(v.data) : null)}</td>
-                      <td>{v.vendedorCurto}</td>
-                      <td><span className="badge">{v.loja}</span></td>
-                      <td>{v.veiculo}</td>
-                      <td>{v.placa && <span className="plate">{v.placa}</span>}</td>
-                      {perfil === "gestor" && <td className="muted">{v.cliente}</td>}
-                      <td><span className={`badge ${s.tom}`}>{s.txt}</span></td>
-                      <td className="c">{v.fin ? "●" : <span className="faint">·</span>}</td>
-                      <td className="c">{v.ge ? "●" : <span className="faint">·</span>}</td>
-                      <td className="c">{v.usado ? "●" : <span className="faint">·</span>}</td>
-                      <td className="r"><Link href={editarHref(v)} className="link-more">Editar</Link></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <VendasLista lista={lista} mostrarCliente={perfil === "gestor"} />
         </section>
       )}
 

@@ -64,6 +64,22 @@ export async function salvarPastaDrive(_: CadState, form: FormData): Promise<Cad
     const { conferirPasta } = await import("@/lib/drive");
     const r = await conferirPasta(link);
     await salvarConfiguracao("pastaDrive", `https://drive.google.com/drive/folders/${r.id}`);
-    return { ok: Date.now(), msg: `Pasta “${r.nome}” conectada (${r.subpastas} subpasta(s)).` };
+    if (!r.editor) return { ok: Date.now(), msg: `Pasta “${r.nome}” conectada só para leitura. Para o app criar as pastas das motos, compartilhe como EDITOR.` };
+    return { ok: Date.now(), msg: `Pasta “${r.nome}” conectada (${r.subpastas} subpasta(s)). Novas motos já ganham a pasta automaticamente.` };
+  } catch (e) { return falha(e); }
+}
+
+/** Cria no Drive as pastas que faltam para todas as motos do estoque e da preparação. */
+export async function criarPastasAction(): Promise<CadState & { msg?: string }> {
+  await exigirPerfil("/cadastro");
+  try {
+    const [{ getEstoque }, { getPreparacao }, { criarPastasEmLote }] = await Promise.all([import("@/lib/estoque"), import("@/lib/preparacao"), import("@/lib/drive")]);
+    const [{ motos }, prep] = await Promise.all([getEstoque(), getPreparacao().catch(() => ({ itens: [] }))]);
+    const lista = [
+      ...motos.map((m) => ({ placa: m.placa, modelo: m.modelo })),
+      ...prep.itens.filter((p) => p.etapa !== "FINALIZADA").map((p) => ({ placa: p.placa, modelo: p.modelo })),
+    ];
+    const r = await criarPastasEmLote(lista);
+    return { ok: Date.now(), msg: `${r.criadas.length} pasta(s) criada(s), ${r.existentes} já existia(m)${r.ignoradas ? `, ${r.ignoradas} moto(s) sem placa válida` : ""}.` };
   } catch (e) { return falha(e); }
 }

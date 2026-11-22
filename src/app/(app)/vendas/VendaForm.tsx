@@ -26,8 +26,8 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
   );
 }
 
-export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir }: {
-  venda: VendaVM | null; vendedores: string[]; motos: { placa: string; modelo: string }[]; hoje: string; podeExcluir: boolean;
+export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir, vendedorFixo = null }: {
+  venda: VendaVM | null; vendedores: string[]; motos: { placa: string; modelo: string }[]; hoje: string; podeExcluir: boolean; vendedorFixo?: string | null;
 }) {
   const [state, onSubmit, pending] = useFormAction<VendaState>(salvarVenda, {});
   const router = useRouter();
@@ -82,10 +82,14 @@ export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir }: {
             <div className="field"><label htmlFor="data">Data</label><input id="data" name="data" type="date" className="input" defaultValue={venda ? iso(venda.data) : hoje} required /></div>
             <div className="field span-2">
               <label htmlFor="vendedor">Vendedor</label>
+              {vendedorFixo ? (
+                <><input type="hidden" name="vendedor" value={vendedorFixo} /><input id="vendedor" className="input" value={vendedorFixo} readOnly /></>
+              ) : (
               <select id="vendedor" name="vendedor" className="input" defaultValue={venda?.vendedor ?? ""} required>
                 <option value="" disabled>Escolha…</option>
                 {[...new Set([...(venda ? [venda.vendedor] : []), ...vendedores])].map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
+              )}
             </div>
             <div className="field">
               <span className="label">Loja</span>

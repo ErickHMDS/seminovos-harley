@@ -86,12 +86,12 @@ export function LeadsView({ leads, gestor, vendedores, nomeVendedor, filtroInici
 
   return (
     <>
-      <div className="grid grid-kpi kpi-strip">
+      {gestor && <div className="grid grid-kpi kpi-strip">
         <div className="kpi accent"><div className="kpi-label">Oportunidades</div><div className="kpi-value">{oportunidades.length}</div><div className="kpi-sub">clientes com moto compatível</div></div>
         <div className={`kpi ${retornos.length ? "warn" : ""}`}><div className="kpi-label">Retornar hoje</div><div className="kpi-value">{retornos.length}</div></div>
         <div className="kpi"><div className="kpi-label">Leads ativos</div><div className="kpi-value">{base.filter((l) => !["VENDIDO", "PERDIDO"].includes(l.status)).length}</div></div>
         <div className="kpi"><div className="kpi-label">Vendidos</div><div className="kpi-value">{conta("VENDIDO")}</div></div>
-      </div>
+      </div>}
 
       {gestor && vendedores.length > 0 && (
         <div className="toolbar">

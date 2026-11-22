@@ -34,7 +34,13 @@ export async function importarDriveAction(placa: string): Promise<FotoState> {
   try {
     const s = await editor();
     const r = await importarDoDrive(placa, null, s);
-    if (!r.achadas) return { erro: `Nenhuma foto encontrada no Drive para ${placa}. Crie uma subpasta com a placa no nome dentro da pasta de fotos (ou cole o link da pasta abaixo).` };
+    if (!r.achadas) {
+      // sem fotos: garante a pasta da moto para o preparador subir as fotos nela
+      const { garantirPastaDaPlaca } = await import("@/lib/drive");
+      const { motoPorPlaca } = await import("@/lib/estoque");
+      const g = await garantirPastaDaPlaca(placa, (await motoPorPlaca(placa))?.modelo ?? "").catch(() => null);
+      return { erro: g ? `Ainda não há fotos na pasta “${g.pasta.nome}” do Drive${g.criada ? " (acabei de criá-la)" : ""}. Suba as fotos nela e clique em importar de novo.` : `Nenhuma foto encontrada no Drive para ${placa}.` };
+    }
     return { ok: Date.now(), msg: r.novas ? `${r.novas} foto(s) importada(s) do Drive${r.pastas.length ? ` (pasta “${r.pastas[0]}”)` : ""}.` : "As fotos do Drive já estavam importadas." };
   } catch (e) { return falha(e); }
 }

@@ -2,7 +2,7 @@
 import { useFormAction } from "@/components/useFormAction";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, salvarPastaDrive, sugerirSenha, type CadState } from "./actions";
+import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, salvarPastaDrive, criarPastasAction, sugerirSenha, type CadState } from "./actions";
 
 export type PessoaVM = { id: string; nome: string; perfil: "gestor" | "vendedor" | "preparador"; vendedor: string; telefone: string; ativo: boolean; atualizadoEm: string };
 export type VendedorVM = { nome: string; curto: string; pos: number; vendas: number; objetivo: number | null };
@@ -166,12 +166,14 @@ function Coordenadores({ emails }: { emails: string }) {
 
 function PastaDrive({ pasta, conta }: { pasta: string; conta: string }) {
   const [state, onSubmit, pending] = useFormAction<CadState & { msg?: string }>(salvarPastaDrive, {});
+  const [lote, iniciar] = useTransition();
+  const [res, setRes] = useState<(CadState & { msg?: string }) | null>(null);
   return (
     <form onSubmit={onSubmit} className="sec">
       <h2 className="sec-title">Fotos no Google Drive</h2>
       <p className="faint" style={{ marginTop: -6, fontSize: 13 }}>
-        Pasta com uma subpasta por moto (com a placa no nome). Compartilhe a pasta como <b>Leitor</b> com{" "}
-        <code className="copiavel">{conta || "a conta de serviço do app"}</code>. Na ficha da moto, “Importar do Google Drive” traz as fotos.
+        Pasta com uma subpasta por moto (com a placa no nome). Compartilhe a pasta como <b>Editor</b> com{" "}
+        <code className="copiavel">{conta || "a conta de serviço do app"}</code>. O app cria sozinho a subpasta de cada moto nova; na ficha, “Importar do Google Drive” traz as fotos.
       </p>
       <div className="quick-add" style={{ marginBottom: 0 }}>
         <input name="pasta" className="input" defaultValue={pasta} placeholder="https://drive.google.com/drive/folders/…" />
@@ -179,6 +181,16 @@ function PastaDrive({ pasta, conta }: { pasta: string; conta: string }) {
       </div>
       {state.erro && <div className="alert bad" style={{ marginTop: 10 }}>{state.erro}</div>}
       {state.ok && <div className="alert ok" style={{ marginTop: 10 }}>{state.msg ?? "Salvo."}</div>}
+      {(pasta || state.ok) && (
+        <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" className="btn small ghost" disabled={lote} onClick={() => { setRes(null); iniciar(async () => setRes(await criarPastasAction())); }}>
+            {lote ? "Criando pastas…" : "Criar pastas das motos do estoque"}
+          </button>
+          {pasta && <a href={pasta} target="_blank" rel="noopener noreferrer" className="link-more">abrir no Drive ↗</a>}
+          {res?.erro && <div className="alert bad" style={{ flexBasis: "100%" }}>{res.erro}</div>}
+          {res?.ok && <div className="alert ok" style={{ flexBasis: "100%" }}>{res.msg}</div>}
+        </div>
+      )}
     </form>
   );
 }
