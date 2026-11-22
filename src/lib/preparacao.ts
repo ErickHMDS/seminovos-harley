@@ -29,6 +29,8 @@ export const COLUNAS = {
   observacoes: "Observações",
   id: "ID App",
   etapa: "Etapa",
+  marca: "Marca",
+  tipo: "Tipo",
   loja: "Loja",
   ano: "Ano",
   km: "Km",

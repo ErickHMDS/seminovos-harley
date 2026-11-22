@@ -2,6 +2,9 @@
 import { podeEditarPreparacao } from "@/lib/auth";
 import { sincronizarInspecao } from "@/lib/atividades";
 import { CHECKLIST, gravarItem, type EstadoItem } from "@/lib/checklist";
+import { config } from "@/lib/config";
+import { atualizarStatusPorPlaca, motoPorPlaca, salvarMoto } from "@/lib/estoque";
+import { rotuloAba } from "@/lib/lojas";
 import { ETAPAS, atualizar, criar, getItem, hojeBR, proximaEtapa, type Campo } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 
@@ -9,7 +12,7 @@ export type SalvarState = { erro?: string; destino?: string; n?: number };
 
 const DATAS: Campo[] = ["dataSaida", "prazoEntrega", "dataRecepcao", "dataRetorno", "dataFinalizacao"];
 const CHECKS: Campo[] = ["fotoPreparacao", "postadoRedes"];
-const TEXTO: Campo[] = ["modelo", "placa", "chassi", "cor", "servicos", "fornecedor", "observacoes", "loja", "ano", "km", "responsavel", "ultimaRevisao", "fotosOficiais"];
+const TEXTO: Campo[] = ["modelo", "marca", "tipo", "placa", "chassi", "cor", "servicos", "fornecedor", "observacoes", "loja", "ano", "km", "responsavel", "ultimaRevisao", "fotosOficiais"];
 
 /** "2026-11-21" -> "21/11/2026" */
 function isoParaBR(v: string): string {
@@ -51,12 +54,29 @@ export async function salvarPreparacao(_: SalvarState, form: FormData): Promise<
   if (id && !anterior) return { erro: "Esta moto não foi encontrada na planilha (ela pode ter sido apagada)." };
 
   const dados = lerFormulario(form);
-  if (!id && !dados.placa && !dados.modelo) return { erro: "Informe pelo menos a placa ou o modelo." };
+  if (!id && (!dados.placa || !dados.modelo)) return { erro: "Informe a placa e o modelo." };
+  if (!id && !dados.loja) return { erro: "Escolha a loja." };
 
   let novoId: string;
+  let estoque = "";
   try {
     if (!id) {
       novoId = await criar(dados);
+      // o preparador coloca a moto no estoque ao receber (se a placa ainda não estiver lá)
+      try {
+        if (!(await motoPorPlaca(dados.placa!))) {
+          const aba = config.estoqueAbas.find((a) => rotuloAba(a) === dados.loja) ?? config.estoqueAbas[0];
+          await salvarMoto(aba, null, null, {
+            empresa: String(form.get("empresa") ?? ""), placa: dados.placa!, modelo: dados.modelo!, km: dados.km ?? "", ano: dados.ano ?? "",
+            cor: dados.cor ?? "", dataEntrada: dados.dataRecepcao || hojeBR(), custo: "", ultimoValorVenda: "", fipe: "", realinhamento: "",
+            status: "EM PREPARAÇÃO", observacao: "", fabricante: dados.marca ?? "", tipo: dados.tipo ?? "",
+          });
+          estoque = "ok";
+        } else estoque = "existente";
+      } catch (e) {
+        console.error("Falha ao incluir no estoque", e);
+        estoque = "erro";
+      }
     } else {
       if (acao === "avancar") {
         const prox = proximaEtapa(anterior!.etapa);
@@ -67,6 +87,10 @@ export async function salvarPreparacao(_: SalvarState, form: FormData): Promise<
         if (prox === "FOTOS" && !merged.dataRetorno) dados.dataRetorno = hojeBR();
         if (prox === "FINALIZADA") dados.dataFinalizacao = merged.dataFinalizacao || hojeBR();
         dados.etapa = prox;
+        // finalizada e postada nas redes -> anunciada no estoque
+        if (prox === "FINALIZADA" && merged.postadoRedes && merged.placa) {
+          try { if (await atualizarStatusPorPlaca(merged.placa, "ANUNCIADO")) estoque = "anunciado"; } catch (e) { console.error(e); }
+        }
       } else if (acao === "voltar") {
         const i = ETAPAS.findIndex((e) => e.id === anterior!.etapa);
         if (i > 0) dados.etapa = ETAPAS[i - 1].id;
@@ -88,7 +112,7 @@ export async function salvarPreparacao(_: SalvarState, form: FormData): Promise<
     }
   }
   const salvo = !id ? "registrar" : acao;
-  return { destino: `/preparacao/${encodeURIComponent(novoId)}?salvo=${salvo}`, n: Date.now() };
+  return { destino: `/preparacao/${encodeURIComponent(novoId)}?salvo=${salvo}${estoque ? `&estoque=${estoque}` : ""}`, n: Date.now() };
 }
 
 export async function marcarEmailEnviado(id: string, enviado: boolean): Promise<SalvarState> {

@@ -8,7 +8,7 @@ import { MotoForm, type MotoVM } from "../MotoForm";
 
 export const dynamic = "force-dynamic";
 
-const rotulo = (aba: string) => (/CTBA|CURITIBA/i.test(aba) ? "Curitiba" : /LOND|LND/i.test(aba) ? "Londrina" : aba);
+import { rotuloAba as rotulo } from "@/lib/lojas";
 
 export default async function MotoPage({ searchParams }: { searchParams: Promise<{ aba?: string; linha?: string }> }) {
   await exigirPerfil("/estoque/moto");

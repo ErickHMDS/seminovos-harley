@@ -70,7 +70,10 @@ export default async function GestorPage() {
           <div className="eyebrow">Visão do gestor</div>
           <h1>{mes ? monthLabel(mes) : "Painel"}</h1>
         </div>
-        <AtualizarDados em={base.atualizadoEm} />
+        <div className="head-actions">
+          <AtualizarDados em={base.atualizadoEm} />
+          <Link href="/catalogo" className="btn ghost small">Catálogo de motos</Link>
+        </div>
       </div>
 
       <div className="grid grid-kpi kpi-strip">

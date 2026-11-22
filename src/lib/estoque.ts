@@ -3,14 +3,21 @@ import { batchGet, batchUpdateValues, getFormulas, listSheets, range } from "./g
 import { cached, invalidate } from "./cache";
 import { batchUpdateSheet, colLetra, colunasComFormula, indiceCabecalho, reqCopiarFormulas, reqExcluirLinha, reqInserirLinha, valorSeguro } from "./planilha";
 import { config } from "./config";
-import { clean, date, daysBetween, hoje as hojeSP, num } from "./parse";
+import { getCatalogo } from "./catalogo";
+import { identificar, TIPOS } from "./motos";
+import { clean, date, daysBetween, hoje as hojeSP, num, title } from "./parse";
+import { garantirColunas } from "./planilha";
 
 export type Moto = {
   id: string;
   aba: string;
   linha: number; // linha na planilha (1-based)
   empresa: string;
-  marca: "HARLEY" | "TRIUMPH" | "OUTRA";
+  marca: "HARLEY" | "TRIUMPH" | "OUTRA"; // bandeira da loja (Freedom/Harley ou Triumph)
+  fabricante: string; // marca da moto (coluna "Marca" ou identificada pelo catálogo)
+  tipo: string; // Big Trail, Custom… (coluna "Tipo" ou catálogo)
+  segmento: string; // grupo de equivalência do catálogo
+  catalogoId: string | null;
   cidade: string;
   placa: string;
   modelo: string;
@@ -53,8 +60,12 @@ function statusNormalizado(s: string): { status: string; anunciada: boolean } {
 }
 
 async function load(): Promise<{ motos: Moto[]; atualizadoEm: string }> {
-  const tabs = await batchGet(config.estoqueId, config.estoqueAbas.map((a) => range(a, "A1:N")));
+  const [tabs, { modelos: catalogo }] = await Promise.all([
+    batchGet(config.estoqueId, config.estoqueAbas.map((a) => range(a, "A1:Z"))),
+    getCatalogo().catch(() => ({ modelos: [] })),
+  ]);
   const hoje = hojeSP();
+  const tipoCanon = (t: string) => TIPOS.find((x) => x.toUpperCase() === t.toUpperCase()) ?? title(t);
   const motos: Moto[] = [];
 
   config.estoqueAbas.forEach((aba, t) => {
@@ -69,12 +80,18 @@ async function load(): Promise<{ motos: Moto[]; atualizadoEm: string }> {
       const empresa = norm(g(r, "Empresa"));
       const entrada = date(g(r, "Data Entrada"));
       const st = statusNormalizado(g(r, "Status"));
+      const marcaCol = g(r, "Marca");
+      const cat = identificar(catalogo, `${marcaCol} ${modelo}`, marcaCol);
       motos.push({
         id: `${aba}#${i + 2}`,
         aba,
         linha: i + 2,
         empresa,
         marca: marca(empresa),
+        fabricante: marcaCol ? (catalogo.find((c) => c.marca.toUpperCase() === marcaCol.toUpperCase())?.marca ?? title(marcaCol)) : cat?.marca ?? "",
+        tipo: g(r, "Tipo") ? tipoCanon(g(r, "Tipo")) : cat?.tipo ?? "",
+        segmento: cat?.segmento ?? "",
+        catalogoId: cat?.id ?? null,
         cidade: cidade(empresa, aba),
         placa,
         modelo: modelo.toUpperCase(),
@@ -127,6 +144,7 @@ export function semCusto(m: Moto): Moto {
 export type MotoInput = {
   empresa: string; placa: string; modelo: string; km: string; ano: string; cor: string; dataEntrada: string;
   custo: string; ultimoValorVenda: string; fipe: string; realinhamento: string; status: string; observacao: string;
+  fabricante?: string; tipo?: string;
 };
 
 const CAMPOS: [keyof MotoInput, string, "texto" | "numero" | "data"][] = [
@@ -134,6 +152,7 @@ const CAMPOS: [keyof MotoInput, string, "texto" | "numero" | "data"][] = [
   ["ano", "Ano Modelo", "texto"], ["cor", "Cor", "texto"], ["dataEntrada", "Data Entrada", "data"],
   ["custo", "Custo Presente", "numero"], ["ultimoValorVenda", "Último Valor Venda", "numero"], ["fipe", "Fipe", "numero"],
   ["realinhamento", "Realinhamento", "numero"], ["status", "Status", "texto"], ["observacao", "Observação", "texto"],
+  ["fabricante", "Marca", "texto"], ["tipo", "Tipo", "texto"],
 ];
 
 function celula(tipo: "texto" | "numero" | "data", v: string): string | number {
@@ -149,7 +168,8 @@ const comparavel = (tipo: "texto" | "numero" | "data", v: string) => (tipo === "
 /** Cria (linha = null) ou atualiza uma moto. Nunca grava nas colunas de fórmula (ex.: Dias Estoque). */
 export async function salvarMoto(aba: string, linha: number | null, placaOriginal: string | null, m: MotoInput): Promise<number> {
   if (!config.estoqueAbas.includes(aba)) throw new Error("Loja inválida.");
-  const rows = (await batchGet(config.estoqueId, [range(aba, "A1:N")]))[0];
+  if (m.fabricante || m.tipo) await garantirColunas(config.estoqueId, aba, ["Marca", "Tipo"]);
+  const rows = (await batchGet(config.estoqueId, [range(aba, "A1:Z")]))[0];
   const col = indiceCabecalho(rows[0] ?? []);
   const formulas = await colunasComFormula(config.estoqueId, aba, 2, Math.max(2, rows.length));
   const sheet = (await listSheets(config.estoqueId)).find((a) => a.title === aba)!;
@@ -176,7 +196,8 @@ export async function salvarMoto(aba: string, linha: number | null, placaOrigina
   }
 
   const r = novo ? [] : rows[alvo - 1] ?? [];
-  const data = CAMPOS.map(([k, nome, tipo]) => ({ c: col(nome), tipo, v: m[k] ?? "" }))
+  const data = CAMPOS.map(([k, nome, tipo]) => ({ c: col(nome), tipo, v: m[k], k }))
+    .filter((x): x is { c: number; tipo: "texto" | "numero" | "data"; v: string; k: keyof MotoInput } => x.v !== undefined)
     .filter(({ c, tipo, v }) => c >= 0 && !formulas.has(c) && (novo ? clean(v) !== "" : comparavel(tipo, r[c] ?? "") !== comparavel(tipo, v)))
     .map(({ c, tipo, v }) => ({ range: range(aba, `${colLetra(c)}${alvo}`), values: [[celula(tipo, v)]] }));
   await batchUpdateValues(config.estoqueId, data);
@@ -207,4 +228,23 @@ export async function empresasPorAba(): Promise<Record<string, string[]>> {
   for (const m of motos) if (m.empresa && !out[m.aba]?.includes(m.empresa)) out[m.aba]?.push(m.empresa);
   for (const k of Object.keys(out)) out[k].sort();
   return out;
+}
+
+/** Atualiza o status de uma moto pela placa (ex.: preparação finalizada → ANUNCIADO). */
+export async function atualizarStatusPorPlaca(placa: string, status: string): Promise<boolean> {
+  invalidate("estoque");
+  const { motos } = await getEstoque();
+  const m = motos.find((x) => x.placa === clean(placa).toUpperCase());
+  if (!m) return false;
+  const rows = (await batchGet(config.estoqueId, [range(m.aba, "A1:Z")]))[0];
+  const col = indiceCabecalho(rows[0] ?? []);
+  if (clean(rows[m.linha - 1]?.[col("Placa")] ?? "").toUpperCase() !== m.placa || col("Status") < 0) return false;
+  await batchUpdateValues(config.estoqueId, [{ range: range(m.aba, `${colLetra(col("Status"))}${m.linha}`), values: [[status]] }]);
+  invalidate("estoque");
+  return true;
+}
+
+export async function motoPorPlaca(placa: string) {
+  const { motos } = await getEstoque();
+  return motos.find((x) => x.placa === clean(placa).toUpperCase()) ?? null;
 }

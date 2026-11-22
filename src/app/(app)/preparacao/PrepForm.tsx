@@ -1,11 +1,14 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ModeloPicker } from "@/components/ModeloPicker";
 import { CHECKLIST, lerItem, type EstadoItem } from "@/lib/checklist";
+import type { ModeloCat } from "@/lib/motos";
 import { salvarPreparacao, type SalvarState } from "./actions";
 
 type Item = Record<string, string> & { etapa: string };
-type Sugestao = { placa: string; modelo: string; cor: string; ano: string; km: string; loja: string };
+export type Sugestao = { placa: string; modelo: string; cor: string; ano: string; km: string; loja: string; fabricante: string; tipo: string; empresa: string };
+export type LojaOpt = { label: string; aba: string; empresas: string[] };
 
 const ETAPAS = ["INSPEÇÃO", "FORNECEDOR", "FOTOS", "FINALIZADA"];
 const PROXIMA: Record<string, string> = {
@@ -32,12 +35,18 @@ function Check({ name, checked, label }: { name: string; checked: boolean; label
 
 type Estado = Record<string, { estado: EstadoItem; obs: string }>;
 
-export function PrepForm({ item, editar, sugestoes, hoje = "" }: { item: Item | null; editar: boolean; sugestoes: Sugestao[]; hoje?: string }) {
+export function PrepForm({ item, editar, sugestoes, hoje = "", catalogo = [], lojas = [] }: {
+  item: Item | null; editar: boolean; sugestoes: Sugestao[]; hoje?: string; catalogo?: ModeloCat[]; lojas?: LojaOpt[];
+}) {
   const [state, action, pending] = useActionState<SalvarState, FormData>(salvarPreparacao, {});
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const acaoRef = useRef<HTMLInputElement>(null);
   const [erroLocal, setErroLocal] = useState("");
+  const [picker, setPicker] = useState({ k: 0, marca: item?.marca ?? "", modelo: item?.modelo ?? "", tipo: item?.tipo ?? "" });
+  const [loja, setLoja] = useState(item?.loja ?? "");
+  const [jaNoEstoque, setJaNoEstoque] = useState<Sugestao | null>(null);
+  const empresas = lojas.find((l) => l.label === loja)?.empresas ?? [];
   const [ck, setCk] = useState<Estado>(() =>
     Object.fromEntries(CHECKLIST.map((d) => [d.campo, lerItem(d, item?.[d.campo])])),
   );
@@ -75,13 +84,16 @@ export function PrepForm({ item, editar, sugestoes, hoje = "" }: { item: Item | 
 
   function preencherPelaPlaca(placa: string) {
     const s = sugestoes.find((x) => x.placa === placa.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+    setJaNoEstoque(s ?? null);
     const f = formRef.current;
     if (!s || !f) return;
     const set = (n: string, val: string) => {
       const el = f.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement | null;
       if (el && !el.value && val) el.value = val;
     };
-    set("modelo", s.modelo); set("cor", s.cor); set("ano", s.ano); set("km", s.km); set("loja", s.loja);
+    set("cor", s.cor); set("ano", s.ano); set("km", s.km);
+    if (s.loja) setLoja(s.loja);
+    setPicker((p) => (p.modelo ? p : { k: p.k + 1, marca: s.fabricante, modelo: s.modelo, tipo: s.tipo }));
   }
 
   const marcar = (campo: string, estado: EstadoItem) => {
@@ -103,20 +115,35 @@ export function PrepForm({ item, editar, sugestoes, hoje = "" }: { item: Item | 
                 onBlur={(e) => preencherPelaPlaca(e.target.value)} style={{ textTransform: "uppercase" }} placeholder="ABC1D23" />
               {sugestoes.length > 0 && <datalist id="placas-estoque">{sugestoes.map((s) => <option key={s.placa} value={s.placa}>{s.modelo}</option>)}</datalist>}
             </div>
-            <div className="field span-2"><label htmlFor="modelo">Modelo</label><input id="modelo" name="modelo" className="input" defaultValue={v("modelo")} /></div>
+            <ModeloPicker key={picker.k} catalogo={catalogo} marcaInicial={picker.marca} modeloInicial={picker.modelo} tipoInicial={picker.tipo} obrigatorio={novo} />
             <div className="field"><label htmlFor="cor">Cor</label><input id="cor" name="cor" className="input" defaultValue={v("cor")} /></div>
             <div className="field"><label htmlFor="ano">Ano</label><input id="ano" name="ano" className="input" inputMode="numeric" defaultValue={v("ano")} /></div>
             <div className="field"><label htmlFor="km">Km</label><input id="km" name="km" className="input" inputMode="numeric" defaultValue={v("km")} /></div>
             <div className="field">
               <label htmlFor="loja">Loja</label>
-              <select id="loja" name="loja" className="input" defaultValue={v("loja")}>
-                <option value="">—</option><option>Curitiba</option><option>Londrina</option>
+              <select id="loja" name="loja" className="input" value={loja} onChange={(e) => setLoja(e.target.value)} required={novo}>
+                <option value="">—</option>
+                {(lojas.length ? lojas.map((l) => l.label) : ["Curitiba", "Londrina"]).map((l) => <option key={l}>{l}</option>)}
               </select>
             </div>
+            {novo && !jaNoEstoque && (
+              <div className="field">
+                <label htmlFor="empresa">Empresa (estoque)</label>
+                <select id="empresa" name="empresa" className="input" key={loja} defaultValue={empresas[0] ?? ""} required disabled={!loja}>
+                  {!loja && <option value="">Escolha a loja</option>}
+                  {empresas.map((e) => <option key={e}>{e}</option>)}
+                </select>
+              </div>
+            )}
             <div className="field"><label htmlFor="chassi">Chassi</label><input id="chassi" name="chassi" className="input mono" defaultValue={v("chassi")} /></div>
             <div className="field"><label htmlFor="responsavel">Responsável</label><input id="responsavel" name="responsavel" className="input" defaultValue={v("responsavel")} /></div>
             <div className="field"><label htmlFor="dataRecepcao">Recebida em</label><input id="dataRecepcao" name="dataRecepcao" type="date" className="input" defaultValue={brParaIso(v("dataRecepcao")) || (novo ? hoje : "")} /></div>
           </div>
+          {novo && (
+            <p className="hint-line neutral">
+              {jaNoEstoque ? "Esta placa já está no estoque — a moto não será duplicada." : "Ao concluir a inspeção, a moto entra no estoque com status EM PREPARAÇÃO."}
+            </p>
+          )}
         </section>
 
         <section className="sec" id="checklist">

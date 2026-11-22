@@ -11,6 +11,7 @@ export const config = {
   estoqueAbas: list(process.env.ESTOQUE_ABAS, ["Estoque CTBA", "Estoque LOND"]),
   preparacaoAba: process.env.PREPARACAO_ABA?.trim() || "Motos em Preparação",
   atividadesAba: process.env.ATIVIDADES_ABA?.trim() || "Atividades",
+  catalogoAba: process.env.CATALOGO_ABA?.trim() || "Catálogo Motos",
   painelAba: process.env.PAINEL_ABA?.trim() || "PAINEL GERAL",
   coordenadorEmail: process.env.COORDENADOR_EMAIL?.trim() ?? "",
   /** segundos que os dados lidos ficam em memória antes de reler a planilha */

@@ -19,6 +19,7 @@ export const ACESSO: Record<string, Perfil[]> = {
   "/preparacao/nova": ["gestor", "preparador"],
   "/leads": ["gestor", "vendedor"],
   "/atividades": ["gestor"],
+  "/catalogo": ["gestor"],
   "/vendas": ["gestor", "vendedor"],
   "/estoque/moto": ["gestor"],
 };

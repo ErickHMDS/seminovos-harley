@@ -1,5 +1,5 @@
 import "server-only";
-import { batchUpdateSheet, getFormulas, range } from "./google";
+import { batchUpdateSheet, ensureColumns, getFormulas, getValues, listSheets, range, updateValues } from "./google";
 import { clean } from "./parse";
 
 /** 0 -> "A", 25 -> "Z", 26 -> "AA" */
@@ -56,3 +56,17 @@ export function reqCopiarFormulas(sheetId: number, deLinha0: number, paraLinha0:
 }
 
 export { batchUpdateSheet };
+
+/** Garante que o cabeçalho (linha 1) tenha estas colunas; acrescenta as que faltarem à direita. */
+export async function garantirColunas(spreadsheetId: string, aba: string, nomes: string[]): Promise<string[]> {
+  const [header = []] = await getValues(spreadsheetId, range(aba, "A1:AZ1"));
+  const atual = [...header];
+  while (atual.length && !clean(atual[atual.length - 1])) atual.pop();
+  const presentes = new Set(atual.map(norm));
+  const faltando = nomes.filter((n) => !presentes.has(norm(n)));
+  if (!faltando.length) return atual;
+  const info = (await listSheets(spreadsheetId)).find((a) => a.title === aba);
+  if (info) await ensureColumns(spreadsheetId, info, atual.length + faltando.length);
+  await updateValues(spreadsheetId, range(aba, `${colLetra(atual.length)}1`), [faltando]);
+  return [...atual, ...faltando];
+}

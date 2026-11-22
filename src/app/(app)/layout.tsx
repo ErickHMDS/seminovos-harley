@@ -15,6 +15,7 @@ const ITENS: NavItem[] = [
   { href: "/preparacao", label: "Preparação", short: "Preparo", icon: "preparacao" },
   { href: "/estoque", label: "Estoque", short: "Estoque", icon: "estoque" },
   { href: "/atividades", label: "Atividades", short: "Tarefas", icon: "atividades" },
+  { href: "/catalogo", label: "Catálogo", short: "Catálogo", icon: "catalogo", desktopOnly: true },
   { href: "/leads", label: "Leads", short: "Leads", icon: "leads", soon: true, desktopOnly: true },
 ];
 

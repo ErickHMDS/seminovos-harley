@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { podeEditarPreparacao } from "@/lib/auth";
 import { getAtividades } from "@/lib/atividades";
 import { inspecaoCompleta, listaEmails, montarEmail } from "@/lib/checklist";
+import { getCatalogo } from "@/lib/catalogo";
 import { config } from "@/lib/config";
+import { rotuloAba } from "@/lib/lojas";
 import { ETAPAS, getItem } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 import { EmailCard } from "../EmailCard";
@@ -18,10 +20,18 @@ const MSG: Record<string, string> = {
   voltar: "Moto voltou para a etapa anterior.",
 };
 
-export default async function ItemPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ salvo?: string }> }) {
+const MSG_ESTOQUE: Record<string, { txt: string; tom: string }> = {
+  ok: { txt: "Moto incluída no estoque com status EM PREPARAÇÃO.", tom: "ok" },
+  existente: { txt: "A placa já estava no estoque — nada foi duplicado.", tom: "ok" },
+  anunciado: { txt: "Status no estoque alterado para ANUNCIADO.", tom: "ok" },
+  erro: { txt: "A preparação foi salva, mas não foi possível incluir a moto no estoque. Cadastre pelo Estoque.", tom: "bad" },
+};
+
+export default async function ItemPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ salvo?: string; estoque?: string }> }) {
   const perfil = await exigirPerfil("/preparacao");
   const { id } = await params;
-  const { salvo } = await searchParams;
+  const { salvo, estoque } = await searchParams;
+  const { modelos } = await getCatalogo();
   const item = await getItem(decodeURIComponent(id));
   if (!item) notFound();
   const atividades = (await getAtividades().catch(() => [])).filter((a) => a.ref === item.id);
@@ -55,6 +65,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
       </ol>
 
       {salvo && MSG[salvo] && <div className="alert ok toast" role="status">{MSG[salvo]}</div>}
+      {estoque && MSG_ESTOQUE[estoque] && <div className={`alert ${MSG_ESTOQUE[estoque].tom} ${MSG_ESTOQUE[estoque].tom === "ok" ? "toast" : ""}`} role="status">{MSG_ESTOQUE[estoque].txt}</div>}
 
       {inspecaoCompleta(plano) && (
         <EmailCard id={item.id} para={listaEmails(config.coordenadorEmail)} assunto={email.assunto} corpo={email.corpo}
@@ -75,7 +86,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
         </section>
       )}
 
-      <PrepForm item={plano} editar={editar} sugestoes={[]} />
+      <PrepForm item={plano} editar={editar} sugestoes={[]} catalogo={modelos} lojas={config.estoqueAbas.map((aba) => ({ label: rotuloAba(aba), aba, empresas: [] }))} />
     </>
   );
 }
