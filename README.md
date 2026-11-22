@@ -14,6 +14,7 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 | **Preparação** | Gestor e Preparador editam; Vendedor vê | Quadro com 4 etapas. **Checklist 360 (OK/Pendente)**, e-mail pronto para os coordenadores ao concluir a inspeção. |
 | **Estoque** | Todos (custo/margem e edição só Gestor) | Busca e filtros. **Gestor adiciona, edita e remove motos.** |
 | **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
+| **Catálogo** | Gestor | Marcas e modelos (tipo, cilindrada, anos, apelidos) e **segmentos de equivalência** entre marcas. Base do autocompletar e dos leads. |
 | **Leads** | — | Em breve. |
 
 ## Como o app grava nas planilhas
@@ -22,6 +23,8 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
   - Contam como venda, igual ao PAINEL GERAL: **FATURADO, ESTOQUE (vendida, aguardando faturar) e TRANSFERENCIA**. "CANCELADA" fica registrada mas não conta.
   - O PAINEL GERAL aponta para a aba do mês nas fórmulas; ao virar o mês, atualize as referências dele como já fazia.
 - **Estoque:** edição altera só as células modificadas; a coluna **Dias Estoque (`=TODAY()-G`) nunca é sobrescrita**. Moto nova recebe a fórmula copiada da linha de cima (se a aba estiver cheia, o app insere uma linha). "Remover do estoque" apaga a linha após confirmação.
+- **Receber moto (preparador):** marca/modelo com sugestões do catálogo (se o modelo escolhido é de outra marca, a marca é corrigida). Ao concluir a inspeção 360 a moto **entra no estoque** da loja escolhida com status EM PREPARAÇÃO (colunas "Marca" e "Tipo" são acrescentadas à direita da aba de estoque). Ao finalizar a preparação já postada nas redes, o status vira ANUNCIADO.
+- **Catálogo Motos:** começa com uma base de ~545 modelos vendidos no Brasil (pesquisa; anos aproximados). Ao salvar, vira a aba "Catálogo Motos" na planilha de estoque, editável pelo app ou direto na planilha. Equivalência = mesmo segmento (tipo + faixa de cilindrada), que o gestor pode ajustar manualmente.
 - **Motos em Preparação:** mantém as 9 colunas originais e acrescenta à direita as colunas do app (etapa, checklist 360, datas, fotos…).
 - **Atividades:** aba criada pelo app na planilha de estoque.
 - Antes de editar/excluir, o app confere se a linha ainda é a mesma (placa/vendedor/veículo); se alguém mexeu na planilha no meio do caminho, ele avisa em vez de gravar no lugar errado.

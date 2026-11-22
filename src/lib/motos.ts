@@ -102,32 +102,68 @@ export function buscar(cat: ModeloCat[], texto: string, marcaPreferida = "", lim
   return res.sort((a, b) => b.s - a.s || a.item.modelo.localeCompare(b.item.modelo)).slice(0, limite).map((r) => r.item);
 }
 
+/** Palavras que indicam a marca no texto livre (além do próprio nome). */
+const APELIDOS_MARCA: Record<string, string[]> = {
+  "Harley-Davidson": ["HARLEY", "HD"],
+  "Royal Enfield": ["RE", "ENFIELD", "ROYAL"],
+  "Mercedes-Benz": ["MERCEDES"],
+};
+/** Números que não são cilindrada: polegadas cúbicas da Harley (114, 117…) e anos. */
+const NAO_CC = new Set([96, 103, 107, 114, 117, 121, 131]);
+
+/** O texto tem uma sequência de palavras que, juntas, formam exatamente o nome? ("FAT BOY", "FATBOY", "XRE 300") */
+function bateInteiro(T: string[], k: string): boolean {
+  for (let i = 0; i < T.length; i++) {
+    let acc = "";
+    for (let j = i; j < T.length && acc.length < k.length; j++) {
+      acc += T[j];
+      if (acc === k) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Identifica a qual modelo do catálogo um texto livre se refere
  * (textos da planilha: "HONDA/XRE 300", "TRIUMPH/TIGER 1200 RA PR", "FAT BOY FLFB").
+ * Regras: nomes só valem como palavras inteiras; se o texto cita uma marca, só procura nela;
+ * cilindrada incompatível com o número do texto derruba o candidato.
  */
 export function identificar(cat: ModeloCat[], texto: string, marcaDica = ""): ModeloCat | null {
-  const tc = compacto(texto);
-  if (!tc) return null;
-  const tt = new Set(tokens(texto));
+  const T = tokens(texto);
+  if (!T.length) return null;
+  const tset = new Set(T);
   const md = compacto(marcaDica);
+  const numeros = T.filter((t) => /^\d{2,4}$/.test(t)).map(Number).filter((n) => n >= 50 && n <= 2500 && !NAO_CC.has(n) && !(n >= 1990 && n <= 2035));
+
+  const marcasNoTexto = new Set<string>();
+  for (const m of marcas(cat)) {
+    const c = compacto(m);
+    const extras = APELIDOS_MARCA[m] ?? [];
+    const primeira = tokens(m)[0];
+    if (tset.has(c) || (md && md === c) || extras.some((e) => tset.has(e)) || (primeira && primeira.length >= 3 && tset.has(primeira)) || T.some((t) => t.startsWith(c) && c.length >= 3)) marcasNoTexto.add(m);
+  }
+
   let melhor: { item: ModeloCat; s: number } | null = null;
   for (const x of idx(cat)) {
+    if (marcasNoTexto.size && !marcasNoTexto.has(x.item.marca)) continue;
     let s = 0;
     x.chaves.forEach((k, i) => {
       if (k.length < 2) return;
-      if (tc.includes(k)) s = Math.max(s, k.length * 2 + 10);
-      else {
-        const t = x.toks[i];
-        const achou = t.filter((p) => tt.has(p)).length;
-        const temNumero = t.some((p) => /\d/.test(p));
-        const numeroBate = !temNumero || t.some((p) => /\d/.test(p) && tt.has(p));
-        if (t.length && numeroBate && achou / t.length >= 0.75) s = Math.max(s, k.length * (achou / t.length));
-      }
+      if (bateInteiro(T, k)) { s = Math.max(s, k.length * 2 + 10); return; }
+      const C = x.toks[i];
+      if (!C.length) return;
+      const achou = C.filter((c) => tset.has(c) || T.some((t) => t.length >= 2 && /^[A-Z]+$/.test(t) && /^[A-Z]+$/.test(c) && c.startsWith(t))).length;
+      const nums = C.filter((c) => /\d/.test(c));
+      const numeroBate = !nums.length || nums.some((n) => tset.has(n));
+      const r = achou / C.length;
+      if (numeroBate && (r >= 0.75 || (achou >= 2 && r >= 0.66))) s = Math.max(s, k.length * r);
     });
     if (!s) continue;
-    if (tc.includes(x.marcaC) || (md && md.includes(x.marcaC))) s += 6;
-    if (!melhor || s > melhor.s || (s === melhor.s && x.item.modelo.length > melhor.item.modelo.length)) melhor = { item: x.item, s };
+    const cc = x.item.cc;
+    if (numeros.length && cc && !numeros.some((n) => Math.abs(n - cc) / cc <= 0.2 || x.toks.some((t) => t.includes(String(n))))) s -= 20;
+    if (marcasNoTexto.has(x.item.marca)) s += 6;
+    if (!melhor || s > melhor.s || (s === melhor.s && x.item.modelo.length < melhor.item.modelo.length)) melhor = { item: x.item, s };
   }
   return melhor && melhor.s >= 6 ? melhor.item : null;
 }
