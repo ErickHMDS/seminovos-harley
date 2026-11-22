@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { AtualizarDados } from "@/components/AtualizarDados";
-import { emailsCoordenadores } from "@/lib/configuracoes";
+import { CHAVES, emailsCoordenadores, getConfiguracoes } from "@/lib/configuracoes";
+import { emailContaServico } from "@/lib/google";
 import { exigirPerfil } from "@/lib/sessao";
 import { getUsuarios } from "@/lib/usuarios";
 import { getVendas, ranking } from "@/lib/vendas";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CadastroPage() {
   await exigirPerfil("/cadastro");
-  const [usuarios, base, emails] = await Promise.all([getUsuarios().catch(() => []), getVendas(), emailsCoordenadores()]);
+  const [usuarios, base, emails, cfg] = await Promise.all([getUsuarios().catch(() => []), getVendas(), emailsCoordenadores(), getConfiguracoes().catch(() => ({} as Record<string, string>))]);
   const mes = base.meses[0];
   const rank = ranking(base.vendas.filter((v) => v.mes === mes), base.objetivos, true);
   const vendedores: VendedorVM[] = rank.map((l, i) => ({ nome: l.vendedor, curto: l.nome, pos: i + 1, vendas: l.vendas, objetivo: l.objetivo }));
@@ -27,7 +28,7 @@ export default async function CadastroPage() {
         </div>
         <AtualizarDados />
       </div>
-      <CadastroView pessoas={pessoas} vendedores={vendedores} emails={emails} url={origem} />
+      <CadastroView pessoas={pessoas} vendedores={vendedores} emails={emails} url={origem} pasta={cfg[CHAVES.pastaDrive.nome] ?? ""} conta={emailContaServico()} />
     </>
   );
 }

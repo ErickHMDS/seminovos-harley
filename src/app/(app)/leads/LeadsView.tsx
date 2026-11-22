@@ -55,10 +55,11 @@ export function Contato({ l, placa = "", vendedor, compacto = false }: { l: Lead
 export function MatchChip({ m }: { m: LeadVM["matches"][number] }) {
   return (
     <div className="match">
-      <div className="match-top">
+      <Link href={`/estoque/ver?placa=${encodeURIComponent(m.placa)}`} className="match-top" title="Ver a ficha da moto">
         <span className="plate">{m.placa}</span>
         <strong>{m.modelo}</strong>
-      </div>
+        <span className="match-ir" aria-hidden>ver ficha →</span>
+      </Link>
       <div className="match-meta">
         <span className={`badge ${m.tipoMatch === "exato" ? "ok" : "accent"}`}>{m.tipoMatch === "exato" ? "exato" : m.tipoMatch === "equivalente" ? "equivalente" : "mesmo tipo"}</span>
         {m.emPreparacao && <span className="badge warn">em preparação</span>}

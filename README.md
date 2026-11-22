@@ -47,11 +47,13 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 
 ## Fotos das motos
 
-Arquivos no **Vercel Blob** (na Vercel: Storage → Create → Blob → conectar ao projeto; cria `BLOB_READ_WRITE_TOKEN`). As fotos são reduzidas no navegador (máx. 1600 px) e o endereço fica na aba `Fotos`. Também é possível adicionar foto por link.
+- **Google Drive (recomendado):** crie uma pasta (ex.: "Fotos Motos") com **uma subpasta por moto com a placa no nome** (ex.: `ABC1D23 - Fat Boy`; pode haver um nível de agrupamento, ex.: `Londrina/ABC1D23`, e subpastas como `oficiais`). Compartilhe a pasta como **Leitor** com o e-mail da conta de serviço e cole o link em **Cadastro → Fotos no Google Drive**. Na ficha da moto, **Importar do Google Drive** traz as imagens (sem duplicar). Também dá para colar o link de uma pasta/foto do Drive. O app lê o arquivo com a conta de serviço e entrega reduzido (`/api/drive/<id>`), sem deixar nada público.
+- **Envio direto:** arquivos no **Vercel Blob** (na Vercel: Storage → Create → Blob → conectar ao projeto; cria `BLOB_READ_WRITE_TOKEN`). As fotos são reduzidas no navegador (máx. 1600 px).
+- Os endereços ficam na aba `Fotos` da planilha do app. Também é possível adicionar foto por link.
 
 ## Configuração
 
-1. Conta de serviço do Google com a **Google Sheets API** ativa; compartilhe as duas planilhas com o e-mail dela como **Editor**.
+1. Conta de serviço do Google com a **Google Sheets API** e a **Google Drive API** ativas; compartilhe as duas planilhas com o e-mail dela como **Editor**.
 2. Variáveis (veja `.env.example`): `GOOGLE_SERVICE_ACCOUNT_JSON`, `SHEET_VENDAS_ID`, `SHEET_ESTOQUE_ID`, `ESTOQUE_ABAS`, `PREPARACAO_ABA`, `APP_SECRET`, `SENHA_GESTOR`, `SENHA_VENDEDOR`, `SENHA_PREPARADOR`, `COORDENADOR_EMAIL` (vários separados por vírgula).
 
 > Nunca versione o JSON da conta de serviço nem o `.env.local`.

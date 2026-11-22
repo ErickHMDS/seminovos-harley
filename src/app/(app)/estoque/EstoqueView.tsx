@@ -19,9 +19,10 @@ const FAIXAS = [
 const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 type Ordem = "dias" | "preco" | "modelo" | "margem";
 
-export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {} }: {
+export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {}, inicial = {} }: {
   motos: Moto[]; verCusto: boolean; editar: boolean; emPreparacao: Record<string, string>; buscaInicial?: string;
   checklists?: Record<string, ResumoChecklist>; capas?: Record<string, string>;
+  inicial?: { faixa?: string; cidade?: string; marca?: string };
 }) {
   const router = useRouter();
   const [ckAberto, setCkAberto] = useState<string | null>(null);
@@ -61,12 +62,12 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
     </button>
   );
   const [busca, setBusca] = useState(buscaInicial);
-  const [cidade, setCidade] = useState("");
-  const [marca, setMarca] = useState("");
+  const [cidade, setCidade] = useState(inicial.cidade ?? "");
+  const [marca, setMarca] = useState(inicial.marca ?? "");
   const [status, setStatus] = useState("");
-  const [faixa, setFaixa] = useState("");
+  const [faixa, setFaixa] = useState(inicial.faixa ?? "");
   const [ordem, setOrdem] = useState<Ordem>("dias");
-  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(!!(inicial.faixa || inicial.cidade || inicial.marca));
 
   const cidades = useMemo(() => [...new Set(motos.map((m) => m.cidade))].sort(), [motos]);
   const statuses = useMemo(() => [...new Set(motos.map((m) => m.status))].sort(), [motos]);

@@ -1,4 +1,5 @@
 import { Brand } from "@/components/Brand";
+import { COMMIT, VERSAO } from "@/lib/versao";
 import { LoginForm } from "./LoginForm";
 
 export default function LoginPage() {
@@ -11,6 +12,7 @@ export default function LoginPage() {
           <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>Digite a sua senha pessoal.</p>
           <LoginForm />
         </div>
+        <p className="versao">{VERSAO}{COMMIT ? ` · ${COMMIT}` : ""}</p>
       </div>
     </div>
   );

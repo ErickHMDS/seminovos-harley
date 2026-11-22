@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ChecklistResumo } from "@/components/ChecklistResumo";
-import { getMoto } from "@/lib/estoque";
+import { getMoto, motoPorPlaca } from "@/lib/estoque";
 import { armazenamentoConfigurado, fotosDaPlaca } from "@/lib/fotos";
+import { pastaConfigurada } from "@/lib/drive";
 import { fmt } from "@/lib/parse";
-import { checklistPorPlaca } from "@/lib/preparacao";
+import { checklistPorPlaca, getPreparacao } from "@/lib/preparacao";
 import { exigirSessao } from "@/lib/sessao";
 import { leadsComOportunidades } from "../../leads/dados";
 import { Galeria } from "../Galeria";
@@ -14,10 +15,15 @@ export const dynamic = "force-dynamic";
 
 const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 
-export default async function FichaMotoPage({ searchParams }: { searchParams: Promise<{ aba?: string; linha?: string }> }) {
+export default async function FichaMotoPage({ searchParams }: { searchParams: Promise<{ aba?: string; linha?: string; placa?: string }> }) {
   const s = await exigirSessao("/estoque");
-  const { aba = "", linha = "" } = await searchParams;
-  const m = await getMoto(aba, Number(linha));
+  const { aba = "", linha = "", placa = "" } = await searchParams;
+  const m = placa ? await motoPorPlaca(placa) : await getMoto(aba, Number(linha));
+  if (!m && placa) {
+    // ainda não entrou no estoque: mostra a moto na preparação
+    const p = (await getPreparacao().catch(() => null))?.itens.filter((x) => x.placa.toUpperCase() === placa.toUpperCase()).pop();
+    if (p) redirect(`/preparacao/${encodeURIComponent(p.id)}`);
+  }
   if (!m) notFound();
   const [fotos, checklists, leads] = await Promise.all([
     fotosDaPlaca(m.placa), checklistPorPlaca().catch(() => ({} as Awaited<ReturnType<typeof checklistPorPlaca>>)),
@@ -47,7 +53,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
         {gestor && <Link href={`/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`} className="btn small ghost">Editar dados</Link>}
       </div>
       <div className="ficha">
-        <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado()} />
+        <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado()} drive={!!(await pastaConfigurada().catch(() => null))} />
         <div className="ficha-info">
           <div className="eyebrow">{[m.fabricante, m.tipo].filter(Boolean).join(" · ") || "Seminovo"}</div>
           <h1 className="ficha-titulo">{m.modelo}</h1>

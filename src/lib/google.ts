@@ -2,7 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import { JWT } from "google-auth-library";
 
-const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
+const SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive.readonly"];
 const API = process.env.SHEETS_API_BASE || "https://sheets.googleapis.com/v4/spreadsheets";
 
 type ServiceAccount = { client_email: string; private_key: string };
@@ -50,6 +50,18 @@ async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
     throw new Error(`Google Sheets API ${res.status}: ${body.slice(0, 400)}`);
   }
   return (await res.json()) as T;
+}
+
+/** E-mail da conta de serviço (com quem compartilhar planilhas e a pasta do Drive). */
+export function emailContaServico(): string {
+  try { return loadCredentials().client_email; } catch { return ""; }
+}
+
+/** Token de acesso da conta de serviço (usado também para ler o Google Drive). */
+export async function tokenGoogle(): Promise<string> {
+  const { token } = await getClient().getAccessToken();
+  if (!token) throw new Error("Não foi possível obter o token do Google.");
+  return token;
 }
 
 /** Monta a referência de intervalo "'Aba'!A1:B2" com aspas escapadas. */

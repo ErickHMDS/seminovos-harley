@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { ChecklistResumo } from "@/components/ChecklistResumo";
 import { podeEditarPreparacao } from "@/lib/auth";
 import { getAtividades } from "@/lib/atividades";
-import { inspecaoCompleta, listaEmails, montarEmail } from "@/lib/checklist";
+import { inspecaoCompleta, listaEmails, montarEmail, resumoChecklist } from "@/lib/checklist";
 import { getCatalogo } from "@/lib/catalogo";
 import { config } from "@/lib/config";
 import { emailsCoordenadores } from "@/lib/configuracoes";
@@ -43,6 +44,9 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   const editar = podeEditarPreparacao(perfil);
   const abertas = atividades.filter((a) => a.aberta);
   const moto = item.placa ? await motoPorPlaca(item.placa).catch(() => null) : null;
+  // vendedor não vê a tela de cadastro: abre a ficha da moto (ou um resumo, se ainda não está no estoque)
+  if (perfil === "vendedor" && moto) redirect(`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`);
+  const soLeitura = perfil === "vendedor";
 
   return (
     <>
@@ -71,7 +75,20 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
       {salvo && MSG[salvo] && <div className="alert ok toast" role="status">{MSG[salvo]}</div>}
       {estoque && MSG_ESTOQUE[estoque] && <div className={`alert ${MSG_ESTOQUE[estoque].tom} ${MSG_ESTOQUE[estoque].tom === "ok" ? "toast" : ""}`} role="status">{MSG_ESTOQUE[estoque].txt}</div>}
 
-      {inspecaoCompleta(plano) && (
+      {soLeitura && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <dl className="ficha-specs">
+            {([["Etapa", ETAPAS[idx]?.label ?? item.etapa], ["Loja", item.loja || "—"], ["Ano", item.ano || "—"], ["Km", item.km || "—"], ["Cor", item.cor || "—"],
+              ["Dias na etapa", item.diasNaEtapa != null ? String(item.diasNaEtapa) : "—"]] as [string, string][]).map(([k, v]) => (
+              <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+            ))}
+          </dl>
+          <div className="kpi-label" style={{ margin: "16px 0 8px" }}>Checklist 360</div>
+          <ChecklistResumo r={resumoChecklist(plano)} compacto />
+        </section>
+      )}
+
+      {!soLeitura && inspecaoCompleta(plano) && (
         <EmailCard id={item.id} para={listaEmails(await emailsCoordenadores())} assunto={email.assunto} corpo={email.corpo}
           enviadoEm={item.emailEnviado} editar={editar} destaque={salvo === "registrar" || item.etapa === "INSPEÇÃO"} />
       )}
@@ -90,7 +107,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
         </section>
       )}
 
-      <PrepForm item={plano} editar={editar} sugestoes={[]} catalogo={modelos} lojas={config.estoqueAbas.map((aba) => ({ label: rotuloAba(aba), aba, empresas: [] }))} />
+      {!soLeitura && <PrepForm item={plano} editar={editar} sugestoes={[]} catalogo={modelos} lojas={config.estoqueAbas.map((aba) => ({ label: rotuloAba(aba), aba, empresas: [] }))} />}
     </>
   );
 }

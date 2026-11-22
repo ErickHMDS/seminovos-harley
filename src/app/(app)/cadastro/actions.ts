@@ -55,3 +55,15 @@ export async function salvarCoordenadores(_: CadState, form: FormData): Promise<
   try { await salvarConfiguracao("coordenadores", emails.join(", ")); } catch (e) { return falha(e); }
   return { ok: Date.now() };
 }
+
+export async function salvarPastaDrive(_: CadState, form: FormData): Promise<CadState & { msg?: string }> {
+  await exigirPerfil("/cadastro");
+  const link = String(form.get("pasta") ?? "").trim();
+  try {
+    if (!link) { await salvarConfiguracao("pastaDrive", ""); return { ok: Date.now(), msg: "Pasta removida." }; }
+    const { conferirPasta } = await import("@/lib/drive");
+    const r = await conferirPasta(link);
+    await salvarConfiguracao("pastaDrive", `https://drive.google.com/drive/folders/${r.id}`);
+    return { ok: Date.now(), msg: `Pasta “${r.nome}” conectada (${r.subpastas} subpasta(s)).` };
+  } catch (e) { return falha(e); }
+}

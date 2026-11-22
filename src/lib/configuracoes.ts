@@ -8,6 +8,7 @@ import { valorSeguro } from "./planilha";
 /** Configurações editáveis pelo gestor (aba "Configurações App": Chave | Valor | Descrição | Atualizado Em). */
 export const CHAVES = {
   coordenadores: { nome: "coordenadores_email", descricao: "E-mails dos coordenadores (separados por vírgula) — recebem o resumo da inspeção 360" },
+  pastaDrive: { nome: "pasta_fotos_drive", descricao: "Pasta do Google Drive com as fotos das motos (uma subpasta por placa), compartilhada com a conta de serviço" },
 } as const;
 
 async function load(): Promise<Record<string, string>> {

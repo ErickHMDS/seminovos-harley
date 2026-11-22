@@ -190,7 +190,7 @@ export function MetaView({ d }: { d: MetaVM }) {
             {d.paradas.length > 0 && (<>
               <div className="meta-card-head" style={{ marginTop: d.aFaturar.length ? 14 : 0 }}><h2>Motos para oferecer</h2><span className="faint" style={{ fontSize: 12 }}>paradas há mais tempo</span></div>
               <ul className="simple-list">
-                {d.paradas.map((m) => <li key={m.placa} className="simple-row"><span className="badge bad">{m.dias}d</span><span className="simple-main">{m.modelo}<small>{m.placa} · {m.cidade}</small></span><span className="simple-side strong">{m.preco != null ? brl.format(m.preco) : ""}</span></li>)}
+                {d.paradas.map((m) => <li key={m.placa}><Link href={`/estoque/ver?placa=${encodeURIComponent(m.placa)}`} className="simple-row"><span className="badge bad">{m.dias}d</span><span className="simple-main">{m.modelo}<small>{m.placa} · {m.cidade}</small></span><span className="simple-side strong">{m.preco != null ? brl.format(m.preco) : ""}</span></Link></li>)}
               </ul>
             </>)}
           </section>

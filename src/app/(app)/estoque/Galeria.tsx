@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/Icon";
-import { capaAction, enviarFotoAction, removerFotoAction } from "./fotosActions";
+import { capaAction, enviarFotoAction, importarDriveAction, removerFotoAction } from "./fotosActions";
+
+const mini = (url: string) => (url.startsWith("/api/drive/") ? `${url}?w=480` : url);
 
 type Foto = { id: string; url: string };
 
@@ -19,13 +21,14 @@ async function reduzir(arquivo: File): Promise<Blob> {
   return await new Promise<Blob>((ok) => c.toBlob((b) => ok(b ?? arquivo), "image/jpeg", 0.84));
 }
 
-export function Galeria({ fotos, placa, editar, modelo, armazenamento }: { fotos: Foto[]; placa: string; editar: boolean; modelo: string; armazenamento: boolean }) {
+export function Galeria({ fotos, placa, editar, modelo, armazenamento, drive = false }: { fotos: Foto[]; placa: string; editar: boolean; modelo: string; armazenamento: boolean; drive?: boolean }) {
   const router = useRouter();
   const [i, setI] = useState(0);
   const [cheia, setCheia] = useState(false);
   const [enviando, setEnviando] = useState("");
   const [erro, setErro] = useState("");
   const [link, setLink] = useState("");
+  const [msg, setMsg] = useState("");
   const [pending, start] = useTransition();
   const toque = useRef<number | null>(null);
   const atual = fotos[Math.min(i, Math.max(0, fotos.length - 1))];
@@ -80,7 +83,7 @@ export function Galeria({ fotos, placa, editar, modelo, armazenamento }: { fotos
         <div className="galeria-thumbs">
           {fotos.map((f, n) => (
             <button key={f.id} type="button" className={`galeria-thumb ${n === i ? "on" : ""}`} onClick={() => setI(n)} aria-label={`Foto ${n + 1}`}>
-              <img src={f.url} alt="" loading="lazy" />
+              <img src={mini(f.url)} alt="" loading="lazy" />
             </button>
           ))}
         </div>
@@ -92,9 +95,14 @@ export function Galeria({ fotos, placa, editar, modelo, armazenamento }: { fotos
               <Icon name="fotos" size={15} /> {enviando || "Enviar fotos"}
               <input type="file" accept="image/*" multiple hidden disabled={!!enviando} onChange={(e) => { enviar(e.target.files); e.target.value = ""; }} />
             </label>
-          ) : <span className="faint" style={{ fontSize: 12 }}>Envio de arquivos: configure o Vercel Blob. Enquanto isso, adicione por link.</span>}
-          <form className="galeria-link" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(); fd.set("placa", placa); fd.set("link", link); start(async () => { const r = await enviarFotoAction(fd); if (r.erro) setErro(r.erro); else { setLink(""); router.refresh(); } }); }}>
-            <input className="input" placeholder="ou cole o link de uma foto" value={link} onChange={(e) => setLink(e.target.value)} />
+          ) : !drive && <span className="faint" style={{ fontSize: 12 }}>Envio de arquivos: configure o Vercel Blob. Enquanto isso, adicione por link.</span>}
+          {drive && (
+            <button type="button" className="btn small ghost btn-drive" disabled={pending} onClick={() => { setErro(""); setMsg(""); start(async () => { const r = await importarDriveAction(placa); if (r.erro) setErro(r.erro); else { setMsg(r.msg ?? ""); router.refresh(); } }); }}>
+              <Icon name="fotos" size={15} /> {pending ? "Procurando no Drive…" : "Importar do Google Drive"}
+            </button>
+          )}
+          <form className="galeria-link" onSubmit={(e) => { e.preventDefault(); setErro(""); setMsg(""); const fd = new FormData(); fd.set("placa", placa); fd.set("link", link); start(async () => { const r = await enviarFotoAction(fd); if (r.erro) setErro(r.erro); else { setLink(""); router.refresh(); } }); }}>
+            <input className="input" placeholder="ou cole o link de uma foto ou pasta do Drive" value={link} onChange={(e) => setLink(e.target.value)} />
             <button className="btn small ghost" disabled={pending || !link}>Adicionar</button>
           </form>
           {atual && (
@@ -106,6 +114,7 @@ export function Galeria({ fotos, placa, editar, modelo, armazenamento }: { fotos
         </div>
       )}
       {erro && <div className="alert bad">{erro}</div>}
+      {msg && !erro && <div className="alert ok">{msg}</div>}
       {cheia && atual && createPortal(
         <div className="lightbox" role="dialog" aria-label="Fotos em tela cheia" onClick={() => setCheia(false)} {...swipe}>
           <img src={atual.url} alt={`${modelo} — foto ${i + 1}`} onClick={(e) => e.stopPropagation()} />

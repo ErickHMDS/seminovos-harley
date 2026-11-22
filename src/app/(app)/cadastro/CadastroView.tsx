@@ -2,7 +2,7 @@
 import { useFormAction } from "@/components/useFormAction";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, sugerirSenha, type CadState } from "./actions";
+import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, salvarPastaDrive, sugerirSenha, type CadState } from "./actions";
 
 export type PessoaVM = { id: string; nome: string; perfil: "gestor" | "vendedor" | "preparador"; vendedor: string; telefone: string; ativo: boolean; atualizadoEm: string };
 export type VendedorVM = { nome: string; curto: string; pos: number; vendas: number; objetivo: number | null };
@@ -164,7 +164,26 @@ function Coordenadores({ emails }: { emails: string }) {
   );
 }
 
-export function CadastroView({ pessoas, vendedores, emails, url }: { pessoas: PessoaVM[]; vendedores: VendedorVM[]; emails: string; url: string }) {
+function PastaDrive({ pasta, conta }: { pasta: string; conta: string }) {
+  const [state, onSubmit, pending] = useFormAction<CadState & { msg?: string }>(salvarPastaDrive, {});
+  return (
+    <form onSubmit={onSubmit} className="sec">
+      <h2 className="sec-title">Fotos no Google Drive</h2>
+      <p className="faint" style={{ marginTop: -6, fontSize: 13 }}>
+        Pasta com uma subpasta por moto (com a placa no nome). Compartilhe a pasta como <b>Leitor</b> com{" "}
+        <code className="copiavel">{conta || "a conta de serviço do app"}</code>. Na ficha da moto, “Importar do Google Drive” traz as fotos.
+      </p>
+      <div className="quick-add" style={{ marginBottom: 0 }}>
+        <input name="pasta" className="input" defaultValue={pasta} placeholder="https://drive.google.com/drive/folders/…" />
+        <button className="btn" disabled={pending}>{pending ? "Conferindo…" : "Salvar"}</button>
+      </div>
+      {state.erro && <div className="alert bad" style={{ marginTop: 10 }}>{state.erro}</div>}
+      {state.ok && <div className="alert ok" style={{ marginTop: 10 }}>{state.msg ?? "Salvo."}</div>}
+    </form>
+  );
+}
+
+export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", conta = "" }: { pessoas: PessoaVM[]; vendedores: VendedorVM[]; emails: string; url: string; pasta?: string; conta?: string }) {
   const [nova, setNova] = useState<{ preset: Partial<PessoaVM> | null } | null>(null);
   const [filtro, setFiltro] = useState<"" | PessoaVM["perfil"]>("");
   const comAcesso = new Map(pessoas.filter((p) => p.perfil === "vendedor" && p.vendedor).map((p) => [p.vendedor, p]));
@@ -210,6 +229,7 @@ export function CadastroView({ pessoas, vendedores, emails, url }: { pessoas: Pe
 
       <section style={{ marginTop: 24 }}>
         <Coordenadores emails={emails} />
+        <PastaDrive pasta={pasta} conta={conta} />
         <p className="faint" style={{ fontSize: 12, marginTop: 10 }}>
           A senha mestra do administrador fica no servidor (variável SENHA_GESTOR) e sempre funciona — use-a se alguém perder o acesso.
           As senhas da equipe ficam embaralhadas (hash) na aba “Usuários App”; ninguém consegue lê-las na planilha.

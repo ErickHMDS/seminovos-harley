@@ -36,7 +36,7 @@ export async function fotosDaPlaca(placa: string): Promise<Foto[]> {
 /** Capa (primeira foto) de cada placa — para miniaturas no estoque. */
 export async function capas(): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const f of [...(await getFotos().catch(() => []))].sort((a, b) => a.ordem - b.ordem || a.linha - b.linha)) if (!out[f.placa]) out[f.placa] = f.url;
+  for (const f of [...(await getFotos().catch(() => []))].sort((a, b) => a.ordem - b.ordem || a.linha - b.linha)) if (!out[f.placa]) out[f.placa] = miniatura(f.url);
   return out;
 }
 
@@ -66,9 +66,41 @@ async function garantirAba() {
   }
 }
 
+/**
+ * Importa do Google Drive: com link (pasta ou arquivo) importa dali; sem link procura
+ * a subpasta da placa na pasta configurada. Fotos já importadas são ignoradas.
+ */
+export async function importarDoDrive(placa: string, link: string | null, s: Sessao): Promise<{ novas: number; achadas: number; pastas: string[] }> {
+  const { fotosDaPlacaNoDrive, fotosDoLink, urlDrive, idDeUrlDrive } = await import("./drive");
+  const p = clean(placa).toUpperCase();
+  const r = link ? { fotos: await fotosDoLink(link), pastas: [] as string[] } : await fotosDaPlacaNoDrive(p);
+  invalidate("fotos");
+  const atuais = await fotosDaPlaca(p);
+  const ja = new Set(atuais.map((f) => idDeUrlDrive(f.url)).filter(Boolean));
+  const novas = r.fotos.filter((f) => !ja.has(f.id)).slice(0, 40);
+  if (novas.length) {
+    await garantirAba();
+    const agora = new Date().toLocaleString("pt-BR", { timeZone: TZ });
+    const base = Date.now();
+    await appendValues(config.appId, range(config.fotosAba, "A1"), novas.map((f, n) => [
+      `F${(base + n).toString(36).toUpperCase()}`, p, urlDrive(f.id), atuais.length + n + 1, agora, valorSeguro(`${s.nome} (Drive)`),
+    ]));
+    invalidate("fotos");
+  }
+  return { novas: novas.length, achadas: r.fotos.length, pastas: r.pastas };
+}
+
+/** Miniatura: fotos do Drive vêm reduzidas pelo app. */
+export const miniatura = (url: string, w = 480) => (url.startsWith("/api/drive/") ? `${url}?w=${w}` : url);
+
 export async function adicionarFoto(placa: string, origem: File | string, s: Sessao): Promise<void> {
   const p = clean(placa).toUpperCase();
   let url: string;
+  if (typeof origem === "string" && /drive\.google\.com|docs\.google\.com/.test(origem)) {
+    const r = await importarDoDrive(p, origem, s);
+    if (!r.achadas) throw new Error("Nenhuma imagem encontrada nesse link do Drive.");
+    return;
+  }
   if (typeof origem === "string") {
     url = clean(origem);
     if (!/^https?:\/\/\S+$/i.test(url)) throw new Error("Link inválido: use um endereço que comece com http(s)://");

@@ -43,14 +43,17 @@ export default async function GestorPage() {
     label: f.label,
     value: motos.filter((m) => faixa(m.dias)?.id === f.id).length,
     tone: (i === 3 ? "bad" : i === 2 ? "warn" : undefined) as "bad" | "warn" | undefined,
+    href: `/estoque?faixa=${encodeURIComponent(f.id)}`,
   }));
-  const porLoja = Object.entries(
-    motos.reduce<Record<string, number>>((acc, m) => {
-      const k = `${m.marca === "TRIUMPH" ? "Triumph" : "Freedom"} · ${m.cidade}`;
-      acc[k] = (acc[k] ?? 0) + 1;
+  const porLoja = Object.values(
+    motos.reduce<Record<string, { label: string; value: number; href: string }>>((acc, m) => {
+      const marca = m.marca === "TRIUMPH" ? "TRIUMPH" : "HARLEY";
+      const k = `${marca === "TRIUMPH" ? "Triumph" : "Freedom"} · ${m.cidade}`;
+      acc[k] ??= { label: k, value: 0, href: `/estoque?${new URLSearchParams({ marca, cidade: m.cidade })}` };
+      acc[k].value++;
       return acc;
     }, {}),
-  ).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+  ).sort((a, b) => b.value - a.value);
   const naoAnunciadas = motos.filter((m) => !m.anunciada).length;
 
   // preparação
@@ -110,7 +113,7 @@ export default async function GestorPage() {
           <div className="panel-head"><h2>Ranking do mês</h2><Link href="/ranking" className="hint accent">ver completo →</Link></div>
           <div className="stack" style={{ gap: 12 }}>
             {rank.slice(0, 7).map((l, i) => (
-              <div key={l.vendedor} style={{ display: "grid", gridTemplateColumns: "2ch 1fr auto", gap: 10, alignItems: "center" }}>
+              <Link key={l.vendedor} href={`/meta?v=${encodeURIComponent(l.vendedor)}`} className="rank-link" title={`Ver a meta de ${l.nome}`} style={{ display: "grid", gridTemplateColumns: "2ch 1fr auto", gap: 10, alignItems: "center" }}>
                 <span className={`rank-pos ${i < 3 && l.vendas ? "top" : ""}`}>{i + 1}</span>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, marginBottom: 4 }}>
@@ -120,7 +123,7 @@ export default async function GestorPage() {
                   <Progress value={l.objetivo ? l.atingimento : l.vendas / Math.max(1, rank[0]?.vendas ?? 1)} />
                 </div>
                 <span className="num faint" style={{ fontSize: 12, minWidth: 36, textAlign: "right" }}>{l.objetivo ? fmt.pct(l.atingimento) : ""}</span>
-              </div>
+              </Link>
             ))}
           </div>
         </section>
@@ -171,7 +174,7 @@ export default async function GestorPage() {
               const mg = m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : null;
               return (
                 <li key={m.id}>
-                  <Link href={`/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`} className="simple-row">
+                  <Link href={`/estoque/ver?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`} className="simple-row">
                     <span className={`badge ${(m.dias ?? 0) > 90 ? "bad" : (m.dias ?? 0) > 60 ? "warn" : "ok"}`}>{m.dias}d</span>
                     <span className="simple-main">{m.modelo}<small>{m.placa} · {m.cidade}{mg != null ? ` · margem ${fmt.brl(mg)}` : ""}</small></span>
                     <span className="simple-side strong">{fmt.brl(m.realinhamento)}</span>

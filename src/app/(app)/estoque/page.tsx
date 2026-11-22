@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const SALVO: Record<string, string> = { nova: "Moto adicionada ao estoque.", editada: "Moto atualizada.", removida: "Moto removida do estoque." };
 
-export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ salvo?: string; q?: string }> }) {
+export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ salvo?: string; q?: string; faixa?: string; cidade?: string; marca?: string }> }) {
   const perfil = await exigirPerfil("/estoque");
   const sp = await searchParams;
   const [{ motos, atualizadoEm }, prep, checklists, fotos] = await Promise.all([
@@ -37,7 +37,8 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       {sp.salvo && SALVO[sp.salvo] && <div className="alert ok toast" role="status">{SALVO[sp.salvo]}</div>}
-      <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} editar={editar} emPreparacao={emPreparacao} buscaInicial={sp.salvo && sp.salvo !== "removida" ? sp.q ?? "" : ""} checklists={checklists} capas={fotos} />
+      <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} editar={editar} emPreparacao={emPreparacao} buscaInicial={sp.salvo && sp.salvo !== "removida" ? sp.q ?? "" : ""} checklists={checklists} capas={fotos}
+        key={`${sp.faixa ?? ""}|${sp.cidade ?? ""}|${sp.marca ?? ""}`} inicial={{ faixa: sp.faixa, cidade: sp.cidade, marca: sp.marca }} />
       {editar && <Fab href="/estoque/moto" label="Nova moto" />}
     </>
   );

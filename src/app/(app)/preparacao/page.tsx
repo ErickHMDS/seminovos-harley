@@ -7,7 +7,7 @@ import { podeEditarPreparacao } from "@/lib/auth";
 import { inspecaoCompleta } from "@/lib/checklist";
 import { ETAPAS, getPreparacao } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
-import { Board, type CardVM, type LaneVM } from "./Board";
+import { Board, type AchadoVM, type CardVM, type LaneVM } from "./Board";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +40,15 @@ export default async function PreparacaoPage({ searchParams }: { searchParams: P
     return { id: etapa.id, label: etapa.label, curto: etapa.curto, total: daEtapa.length, cards, mais: daEtapa.length - visiveis.length };
   });
 
+  const todos: AchadoVM[] = [...itens].reverse().map((p) => {
+    const n = ETAPAS.findIndex((e) => e.id === p.etapa);
+    return {
+      id: p.id, modelo: p.modelo, placa: p.placa, loja: p.loja, etapa: n, etapaLabel: ETAPAS[n]?.label ?? p.etapa,
+      dias: p.etapa === "FINALIZADA" ? null : p.diasNaEtapa, finalizada: p.etapa === "FINALIZADA", quando: p.dataFinalizacao ?? "",
+      fabricante: (p as unknown as { marca?: string }).marca ?? "",
+    };
+  });
+
   return (
     <>
       <div className="page-head">
@@ -52,7 +61,7 @@ export default async function PreparacaoPage({ searchParams }: { searchParams: P
           {editar && <Link href="/preparacao/nova" className="btn desktop-only"><Icon name="plus" size={16} /> Receber moto</Link>}
         </div>
       </div>
-      <Board lanes={lanes} />
+      <Board lanes={lanes} todos={todos} etapas={ETAPAS.length} />
       {editar && <Fab href="/preparacao/nova" label="Receber moto" />}
     </>
   );

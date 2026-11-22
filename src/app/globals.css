@@ -1021,3 +1021,31 @@ li > .ck-pop { margin-top: 8px; background: var(--panel); border: 1px solid var(
 .ck-gaveta-head strong { font-size: 18px; margin-right: 6px; }
 .ck-gaveta .ckr-lista { grid-template-columns: 1fr; }
 @media (max-width: 1440px) { .col-opc { display: none; } }
+
+/* atalhos clicáveis do painel */
+.rank-link { color: inherit; text-decoration: none; border-radius: 8px; padding: 4px 6px; margin: -4px -6px; transition: background .15s; }
+.rank-link:hover, .rank-link:focus-visible { background: rgba(255,255,255,.05); }
+.rank-link:hover .strong { color: var(--accent-hot); }
+.bars > a { color: inherit; text-decoration: none; display: block; border-radius: 6px; padding: 3px 6px; margin: -3px -6px; transition: background .15s; }
+.bars > a:hover, .bars > a:focus-visible { background: rgba(255,255,255,.05); }
+.bars > a:hover .label { color: #fff; }
+.versao { text-align: center; font-size: 11px; color: var(--faint, #666); margin-top: 14px; letter-spacing: .04em; }
+code.copiavel { user-select: all; background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; font-size: 12px; word-break: break-all; }
+.btn-drive { white-space: nowrap; }
+/* busca da preparação */
+.prep-busca { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+.prep-busca .input { flex: 1; max-width: 420px; }
+.prep-achados { display: grid; gap: 8px; margin-bottom: 16px; }
+.prep-achado { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+.prep-achado:hover { border-color: var(--accent); transform: translateY(-1px); }
+.prep-achado small { display: block; color: var(--muted); font-size: 12px; }
+.etapa-passos { display: flex; gap: 3px; align-items: center; }
+.etapa-passos i { width: 16px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); }
+.etapa-passos i.on { background: var(--accent); }
+.etapa-passos i.feito { background: var(--ok); }
+
+a.match-top { color: inherit; text-decoration: none; }
+a.match-top:hover strong { color: var(--accent-hot); }
+.match-ir { margin-left: auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+a.match-top:hover .match-ir { color: var(--accent-hot); }
+.galeria-acoes .galeria-link { flex: 1 1 100%; }

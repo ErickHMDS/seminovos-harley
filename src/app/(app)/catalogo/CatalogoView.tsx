@@ -168,7 +168,7 @@ export function CatalogoView({ modelos, fonte, estoque, aba }: { modelos: Modelo
                       <ul className="simple-list">
                         {[...noEstoque, ...segEstoque].map((e) => (
                           <li key={e.aba + e.linha}>
-                            <Link className="simple-row" href={`/estoque/moto?${new URLSearchParams({ aba: e.aba, linha: String(e.linha) })}`}>
+                            <Link className="simple-row" href={`/estoque/ver?${new URLSearchParams({ aba: e.aba, linha: String(e.linha) })}`}>
                               <span className="plate">{e.placa}</span>
                               <span className="simple-main">{e.modelo}<small>{[e.fabricante, e.ano, e.cidade, e.dias != null ? `${e.dias}d` : ""].filter(Boolean).join(" · ")}</small></span>
                               <span className="simple-side strong">{e.preco != null ? brl.format(e.preco) : ""}</span>
