@@ -154,14 +154,17 @@ export async function removerFoto(id: string): Promise<void> {
     try { const { del } = await import("@vercel/blob"); await del(f.url); } catch { /* o arquivo pode já ter sido removido */ }
   }
   invalidate("fotos");
+  await contarFotosNaPreparacao(f.placa);
 }
 
-/** Torna a foto a capa (ordem 0). */
-export async function definirCapa(id: string): Promise<void> {
+/** Grava a ordem das fotos da moto (a 1ª é a capa). `ids` = todas as fotos da placa, na nova ordem. */
+export async function reordenarFotos(placa: string, ids: string[]): Promise<void> {
   invalidate("fotos");
-  const f = (await getFotos()).find((x) => x.id === id);
-  if (!f) throw new Error("Foto não encontrada.");
+  const p = clean(placa).toUpperCase();
+  const atuais = await fotosDaPlaca(p);
+  const porId = new Map(atuais.map((f) => [f.id, f]));
+  if (ids.length !== atuais.length || ids.some((id) => !porId.has(id))) throw new Error("As fotos mudaram enquanto você reordenava. Atualize a página e tente de novo.");
   const { batchUpdateValues } = await import("./google");
-  await batchUpdateValues(config.appId, [{ range: range(config.fotosAba, `D${f.linha}`), values: [[0]] }]);
+  await batchUpdateValues(config.appId, ids.map((id, n) => ({ range: range(config.fotosAba, `D${porId.get(id)!.linha}`), values: [[n + 1]] })));
   invalidate("fotos");
 }

@@ -11,9 +11,9 @@ import { Board, type AchadoVM, type CardVM, type LaneVM } from "./Board";
 
 export const dynamic = "force-dynamic";
 
-export default async function PreparacaoPage({ searchParams }: { searchParams: Promise<{ finalizadas?: string }> }) {
+export default async function PreparacaoPage({ searchParams }: { searchParams: Promise<{ finalizadas?: string; salvo?: string }> }) {
   const perfil = await exigirPerfil("/preparacao");
-  const { finalizadas } = await searchParams;
+  const { finalizadas, salvo } = await searchParams;
   const [{ itens }, atividades] = await Promise.all([getPreparacao(), getAtividades().catch(() => [])]);
   const editar = podeEditarPreparacao(perfil);
   const limite = finalizadas === "1" ? Infinity : 8;
@@ -61,6 +61,7 @@ export default async function PreparacaoPage({ searchParams }: { searchParams: P
           {editar && <Link href="/preparacao/nova" className="btn desktop-only"><Icon name="plus" size={16} /> Receber moto</Link>}
         </div>
       </div>
+      {salvo === "excluida" && <div className="alert ok toast" role="status" style={{ marginBottom: 12 }}>Preparação excluída.</div>}
       <Board lanes={lanes} todos={todos} etapas={ETAPAS.length} />
       {editar && <Fab href="/preparacao/nova" label="Receber moto" />}
     </>

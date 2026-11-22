@@ -9,13 +9,14 @@ import { config } from "@/lib/config";
 import { emailsCoordenadores } from "@/lib/configuracoes";
 import { rotuloAba } from "@/lib/lojas";
 import { motoPorPlaca } from "@/lib/estoque";
-import { linkPasta, pastaConfigurada, pastaDaPlaca } from "@/lib/drive";
+import { pastaConfigurada } from "@/lib/drive";
 import { armazenamentoConfigurado, fotosDaPlaca } from "@/lib/fotos";
 import { Galeria } from "../../estoque/Galeria";
 import { ETAPAS, getItem } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 import { EmailCard } from "../EmailCard";
 import { PrepForm } from "../PrepForm";
+import { ExcluirPreparacao } from "./ExcluirPreparacao";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,6 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   // vendedor não vê a tela de cadastro: abre a ficha da moto (ou um resumo, se ainda não está no estoque)
   if (perfil === "vendedor" && moto) redirect(`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`);
   const soLeitura = perfil === "vendedor";
-  const pasta = !soLeitura && item.placa ? await pastaDaPlaca(item.placa).catch(() => null) : null;
   const temDrive = !!(await pastaConfigurada().catch(() => null));
 
   return (
@@ -66,7 +66,6 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             {item.responsavel && <> · {item.responsavel}</>}
           </p>
           {moto && <Link href={`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`} className="btn small ghost" style={{ marginTop: 10 }}>Ficha e fotos da moto →</Link>}
-          {pasta && <a href={linkPasta(pasta.id)} target="_blank" rel="noopener noreferrer" className="btn small ghost" style={{ marginTop: 10, marginLeft: 8 }}>Pasta de fotos no Drive ↗</a>}
         </div>
       </div>
 
@@ -116,13 +115,14 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
 
       {!soLeitura && item.placa && idx >= 2 && (
         <section className="sec prep-fotos" style={{ marginBottom: 16 }}>
-          <div className="sec-head"><h2 className="sec-title">Fotos oficiais</h2><span className="faint" style={{ fontSize: 13 }}>vão para a pasta da moto no Drive</span></div>
+          <div className="sec-head"><h2 className="sec-title">Fotos oficiais</h2><span className="faint" style={{ fontSize: 13 }}>a 1ª é a capa</span></div>
           <Galeria fotos={(await fotosDaPlaca(item.placa)).map((f) => ({ id: f.id, url: f.url }))} placa={item.placa} editar modelo={item.modelo}
-            armazenamento={armazenamentoConfigurado() || temDrive} drive={temDrive} pastaDrive={pasta ? linkPasta(pasta.id) : null} />
+            armazenamento={armazenamentoConfigurado() || temDrive} />
         </section>
       )}
 
       {!soLeitura && <PrepForm item={plano} editar={editar} sugestoes={[]} catalogo={modelos} lojas={config.estoqueAbas.map((aba) => ({ label: rotuloAba(aba), aba, empresas: [] }))} />}
+      {perfil === "gestor" && <ExcluirPreparacao id={item.id} nome={`${item.modelo || "moto"}${item.placa ? ` · ${item.placa}` : ""}`} />}
     </>
   );
 }

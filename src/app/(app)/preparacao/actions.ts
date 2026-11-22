@@ -5,7 +5,7 @@ import { CHECKLIST, gravarItem, type EstadoItem } from "@/lib/checklist";
 import { config } from "@/lib/config";
 import { atualizarStatusPorPlaca, motoPorPlaca, salvarMoto } from "@/lib/estoque";
 import { rotuloAba } from "@/lib/lojas";
-import { ETAPAS, atualizar, criar, getItem, hojeBR, proximaEtapa, type Campo } from "@/lib/preparacao";
+import { ETAPAS, atualizar, criar, excluir, getItem, hojeBR, proximaEtapa, type Campo } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 
 export type SalvarState = { erro?: string; destino?: string; n?: number };
@@ -153,4 +153,19 @@ export async function criarPreparacaoDoEstoque(placa: string): Promise<SalvarSta
   } catch (e) {
     return erroPlanilha(e);
   }
+}
+
+/** Gestor exclui uma preparação (ex.: lançada por engano). Não mexe no estoque nem nas fotos. */
+export async function excluirPreparacao(id: string): Promise<SalvarState> {
+  const perfil = await exigirPerfil("/preparacao");
+  if (perfil !== "gestor") return { erro: "Só o gestor pode excluir uma preparação." };
+  try {
+    await excluir(id);
+    // pendências abertas da inspeção dessa moto deixam de fazer sentido
+    const { getAtividades, resolverAtividade } = await import("@/lib/atividades");
+    for (const a of (await getAtividades()).filter((x) => x.ref === id && x.aberta)) await resolverAtividade(a.id, "Preparação excluída pelo gestor");
+  } catch (e) {
+    return erroPlanilha(e);
+  }
+  return { destino: "/preparacao?salvo=excluida", n: Date.now() };
 }

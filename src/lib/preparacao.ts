@@ -3,7 +3,7 @@ import { addSheet, appendValues, batchUpdateValues, ensureColumns, getValues, li
 import { cached, invalidate } from "./cache";
 import { config } from "./config";
 import { TZ, clean, date, daysBetween, hoje as hojeSP } from "./parse";
-import { colLetra, valorSeguro } from "./planilha";
+import { batchUpdateSheet, colLetra, reqExcluirLinha, valorSeguro } from "./planilha";
 
 export const ETAPAS = [
   { id: "INSPEÇÃO", label: "Recepção e inspeção 360", curto: "Inspeção" },
@@ -198,6 +198,24 @@ export async function atualizar(id: string, dados: Partial<Record<Campo, string>
   await batchUpdateValues(sid, celulas);
   invalidate("preparacao");
   return novoId;
+}
+
+/** Exclui a linha da preparação (gestor). Confere ID/placa antes, para não apagar a linha errada. */
+export async function excluir(id: string): Promise<{ placa: string; modelo: string }> {
+  invalidate("preparacao");
+  const item = await getItem(id);
+  if (!item) throw new Error("Preparação não encontrada (pode já ter sido excluída).");
+  const sid = await planilhaPrep();
+  const { header } = await lerAba();
+  const idx = indices(header);
+  const rows = await getValues(sid, range(config.preparacaoAba, "A1:AZ"));
+  const r = rows[item.linha - 1] ?? [];
+  const confere = idx.id >= 0 && clean(r[idx.id] ?? "") ? clean(r[idx.id]) === id : clean(r[idx.placa] ?? "").toUpperCase() === item.placa.toUpperCase();
+  if (!confere) throw new Error("A planilha mudou enquanto você excluía. Atualize a página e tente de novo.");
+  const info = (await listSheets(sid)).find((a) => a.title === config.preparacaoAba)!;
+  await batchUpdateSheet(sid, [reqExcluirLinha(info.sheetId, item.linha - 1)]);
+  invalidate("preparacao");
+  return { placa: item.placa, modelo: item.modelo };
 }
 
 export function proximaEtapa(etapa: string): Etapa | null {

@@ -1082,3 +1082,26 @@ a.match-top:hover .match-ir { color: var(--accent-hot); }
 .ponte .passos a { color: var(--accent-hot); }
 .ponte-codigo { display: grid; gap: 8px; justify-items: start; }
 .ponte-codigo textarea { width: 100%; font-size: 12px; white-space: pre; }
+
+/* ordem das fotos (1 = capa): arrastar no computador, setas no celular */
+.galeria-ordem { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; transition: opacity .15s; }
+.galeria-ordem.salvando { opacity: .75; }
+.ordem-item { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); overflow: hidden; cursor: grab; transition: border-color .15s, transform .15s; }
+.ordem-item.on { border-color: var(--accent); }
+.ordem-item.arrastando { opacity: .4; transform: scale(.97); }
+.ordem-foto { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 0; background: #000; cursor: pointer; }
+.ordem-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ordem-num { position: absolute; top: 6px; left: 6px; min-width: 22px; padding: 2px 7px; border-radius: 999px; background: rgba(0,0,0,.75); color: #fff; font-size: 12px; font-weight: 700; text-align: center; }
+.ordem-num.capa { background: var(--accent); text-transform: uppercase; letter-spacing: .04em; font-size: 10.5px; padding: 3px 8px; }
+.ordem-ctrl { display: flex; }
+.ordem-ctrl button { flex: 1; padding: 6px 0; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; }
+.ordem-ctrl button + button { border-left: 1px solid var(--line); }
+.ordem-ctrl button:hover:not(:disabled) { color: #fff; background: rgba(255,255,255,.05); }
+.ordem-ctrl button:disabled { opacity: .3; cursor: default; }
+.ordem-ctrl .ordem-remover:hover:not(:disabled) { color: var(--bad); }
+.galeria-dica { font-size: 12px; margin: 6px 0 10px; }
+
+.excluir-prep { margin: 28px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.link-btn.perigo { color: var(--bad); }
+.excluir-confirma { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+.btn.perigo { background: var(--bad); border-color: var(--bad); color: #fff; }
