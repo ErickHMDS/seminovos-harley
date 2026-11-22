@@ -70,15 +70,15 @@ export function MatchChip({ m }: { m: LeadVM["matches"][number] }) {
   );
 }
 
-export function LeadsView({ leads, gestor, vendedores, nomeVendedor }: { leads: LeadVM[]; gestor: boolean; vendedores: { id: string; nome: string }[]; nomeVendedor: string }) {
-  const [status, setStatus] = useState("ativos");
+export function LeadsView({ leads, gestor, vendedores, nomeVendedor, filtroInicial = "", vendedorInicial = "" }: { leads: LeadVM[]; gestor: boolean; vendedores: { id: string; nome: string }[]; nomeVendedor: string; filtroInicial?: string; vendedorInicial?: string }) {
+  const [status, setStatus] = useState(filtroInicial || "ativos");
   const [q, setQ] = useState("");
-  const [vend, setVend] = useState("");
+  const [vend, setVend] = useState(vendedorInicial);
   const base = useMemo(() => leads.filter((l) => !vend || l.vendedorId === vend), [leads, vend]);
   const oportunidades = base.filter((l) => l.matches.length > 0);
   const retornos = base.filter((l) => l.retornoHoje);
   const lista = base
-    .filter((l) => (status === "ativos" ? !["VENDIDO", "PERDIDO"].includes(l.status) : status === "todos" || l.status === status))
+    .filter((l) => (status === "ativos" ? !["VENDIDO", "PERDIDO"].includes(l.status) : status === "syonet" ? !l.syonet && l.status !== "PERDIDO" : status === "todos" || l.status === status))
     .filter((l) => !q || `${l.cliente} ${l.desejo} ${l.telefone}`.toUpperCase().includes(q.toUpperCase()))
     .sort((a, b) => b.matches.length - a.matches.length || Number(b.retornoHoje) - Number(a.retornoHoje) || b.criadoEm.localeCompare(a.criadoEm));
   const conta = (id: string) => base.filter((l) => l.status === id).length;
@@ -148,6 +148,7 @@ export function LeadsView({ leads, gestor, vendedores, nomeVendedor }: { leads: 
         </div>
         <div className="chips scroll" style={{ marginBottom: 12 }}>
           <button type="button" className="chip" aria-pressed={status === "ativos"} onClick={() => setStatus("ativos")}>Ativos</button>
+          <button type="button" className="chip" aria-pressed={status === "syonet"} onClick={() => setStatus("syonet")}>Sem Syonet · {base.filter((l) => !l.syonet && l.status !== "PERDIDO").length}</button>
           {STATUS.map((s) => <button key={s.id} type="button" className="chip" aria-pressed={status === s.id} onClick={() => setStatus(s.id)}>{s.label} · {conta(s.id)}</button>)}
           <button type="button" className="chip" aria-pressed={status === "todos"} onClick={() => setStatus("todos")}>Todos</button>
         </div>
@@ -165,6 +166,7 @@ export function LeadsView({ leads, gestor, vendedores, nomeVendedor }: { leads: 
                   <div className="lead-meta">
                     {l.matches.length > 0 && <span className="badge ok">{l.matches.length} moto{l.matches.length > 1 ? "s" : ""} compatível{l.matches.length > 1 ? "is" : ""}</span>}
                     {l.retornoHoje && <span className="badge warn">retornar hoje</span>}
+                    {!l.syonet && l.status !== "PERDIDO" && <span className="badge bad">sem Syonet</span>}
                     {l.ultimoContato && <span>último contato {l.ultimoContato.slice(0, 5)}</span>}
                     {gestor && <span>{l.vendedor}</span>}
                   </div>

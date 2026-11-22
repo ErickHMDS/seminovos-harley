@@ -20,7 +20,7 @@ export const ACESSO: Record<string, Perfil[]> = {
   "/leads": ["gestor", "vendedor"],
   "/meta": ["gestor", "vendedor"],
   "/cadastro": ["gestor"],
-  "/atividades": ["gestor"],
+  "/atividades": ["gestor", "vendedor"],
   "/catalogo": ["gestor"],
   "/vendas": ["gestor", "vendedor"],
   "/estoque/moto": ["gestor"],

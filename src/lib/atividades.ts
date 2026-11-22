@@ -28,9 +28,9 @@ const agora = () => new Date().toLocaleString("pt-BR", { timeZone: TZ });
 const norm = (s: string) => clean(s).toUpperCase();
 
 async function lerAba() {
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.atividadesAba)) return { existe: false, header: [] as string[], rows: [] as string[][] };
-  const [header = [], ...rows] = await getValues(config.estoqueId, range(config.atividadesAba, "A1:Z"));
+  const [header = [], ...rows] = await getValues(config.appId, range(config.atividadesAba, "A1:Z"));
   return { existe: true, header, rows };
 }
 
@@ -56,14 +56,14 @@ export function getAtividades() {
 
 async function garantirAba(): Promise<string[]> {
   const { existe, header } = await lerAba();
-  if (!existe) await addSheet(config.estoqueId, config.atividadesAba);
+  if (!existe) await addSheet(config.appId, config.atividadesAba);
   const atual = [...header];
   while (atual.length && !clean(atual[atual.length - 1])) atual.pop(); // remove vazios do fim
   const presentes = new Set(atual.map(norm));
   const faltando = CAMPOS.map((c) => COLS[c]).filter((n) => !presentes.has(norm(n)));
   if (!faltando.length) return atual;
   const novo = [...atual, ...faltando];
-  await updateValues(config.estoqueId, range(config.atividadesAba, "A1"), [novo]);
+  await updateValues(config.appId, range(config.atividadesAba, "A1"), [novo]);
   return novo;
 }
 
@@ -83,7 +83,7 @@ async function criarVarias(novas: Nova[]) {
     for (const c of CAMPOS) if (idx[c] >= 0) linha[idx[c]] = String(valorSeguro(v[c]));
     return linha;
   });
-  await appendValues(config.estoqueId, range(config.atividadesAba, "A1"), linhas);
+  await appendValues(config.appId, range(config.atividadesAba, "A1"), linhas);
 }
 
 async function atualizarCampos(mudancas: { linha: number; campos: Partial<Record<Col, string>> }[]) {
@@ -96,7 +96,7 @@ async function atualizarCampos(mudancas: { linha: number; campos: Partial<Record
       values: [[valorSeguro(campos[c] ?? "")]],
     })),
   );
-  await batchUpdateValues(config.estoqueId, data);
+  await batchUpdateValues(config.appId, data);
 }
 
 /**

@@ -34,9 +34,9 @@ function confere(senha: string, hash: string): boolean {
 }
 
 async function lerAba() {
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.usuariosAba)) return { existe: false, header: [] as string[], rows: [] as string[][] };
-  const [header = [], ...rows] = await getValues(config.estoqueId, range(config.usuariosAba, "A1:Z"));
+  const [header = [], ...rows] = await getValues(config.appId, range(config.usuariosAba, "A1:Z"));
   return { existe: true, header, rows };
 }
 
@@ -64,8 +64,8 @@ export function getUsuarios() {
 async function garantirAba() {
   const { existe, header } = await lerAba();
   if (!existe) {
-    await addSheet(config.estoqueId, config.usuariosAba);
-    await updateValues(config.estoqueId, range(config.usuariosAba, "A1"), [CABECALHO]);
+    await addSheet(config.appId, config.usuariosAba);
+    await updateValues(config.appId, range(config.usuariosAba, "A1"), [CABECALHO]);
     return CABECALHO;
   }
   return header;
@@ -125,7 +125,7 @@ export async function criarUsuario(dados: NovoUsuario, senha: string): Promise<U
   };
   const linha = header.map(() => "" as string | number);
   for (const [k, v] of Object.entries(valores)) if (col(k) >= 0) linha[col(k)] = typeof v === "number" ? v : valorSeguro(v);
-  await appendValues(config.estoqueId, range(config.usuariosAba, "A1"), [linha]);
+  await appendValues(config.appId, range(config.usuariosAba, "A1"), [linha]);
   invalidate("usuarios");
   return (await getUsuarios()).find((u) => u.id === id)!;
 }
@@ -136,7 +136,7 @@ async function gravar(u: Usuario, campos: Record<string, string | number>) {
   const data = Object.entries({ ...campos, "Atualizado Em": agora() })
     .filter(([k]) => col(k) >= 0)
     .map(([k, v]) => ({ range: range(config.usuariosAba, `${colLetra(col(k))}${u.linha}`), values: [[typeof v === "number" ? v : valorSeguro(v)]] }));
-  await batchUpdateValues(config.estoqueId, data);
+  await batchUpdateValues(config.appId, data);
   invalidate("usuarios");
 }
 

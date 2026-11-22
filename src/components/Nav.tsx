@@ -1,28 +1,44 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Icon } from "./Icon";
 
-export type NavItem = { href: string; label: string; short: string; icon: string; soon?: boolean; badge?: number; desktopOnly?: boolean };
+export type NavItem = { href: string; label: string; short: string; icon: string; soon?: boolean; badge?: number; desktopOnly?: boolean; menu?: boolean };
+
+const ativo = (path: string, href: string) => path === href || path.startsWith(`${href}/`) || (href === "/ranking" && path.startsWith("/vendas"));
+
+function Item({ it, path }: { it: NavItem; path: string }) {
+  return (
+    <Link href={it.href} aria-current={ativo(path, it.href) ? "page" : undefined} className={it.desktopOnly ? "desktop-only" : undefined} title={it.label}>
+      <span className="nav-ico">
+        <Icon name={it.icon} />
+        {it.badge ? <span className="nav-badge">{it.badge > 99 ? "99+" : it.badge}</span> : null}
+      </span>
+      <span className="nav-long">{it.label}</span>
+      <span className="nav-short">{it.short}</span>
+    </Link>
+  );
+}
 
 export function Nav({ items }: { items: NavItem[] }) {
   const path = usePathname();
+  const principais = items.filter((i) => !i.menu);
+  const extras = items.filter((i) => i.menu);
+  const mais = useRef<HTMLDetailsElement>(null);
+  useEffect(() => { if (mais.current) mais.current.open = false; }, [path]);
+  const extraAtivo = extras.some((i) => ativo(path, i.href));
   return (
     <nav className="nav" aria-label="Áreas">
-      {items.map((it) => {
-        const active = path === it.href || path.startsWith(`${it.href}/`) || (it.href === "/ranking" && path.startsWith("/vendas"));
-        return (
-          <Link key={it.href} href={it.href} aria-current={active ? "page" : undefined} className={it.desktopOnly ? "desktop-only" : undefined}>
-            <span className="nav-ico">
-              <Icon name={it.icon} />
-              {it.badge ? <span className="nav-badge">{it.badge > 99 ? "99+" : it.badge}</span> : null}
-            </span>
-            <span className="nav-long">{it.label}</span>
-            <span className="nav-short">{it.short}</span>
-            {it.soon && <span className="soon">em breve</span>}
-          </Link>
-        );
-      })}
+      {principais.map((it) => <Item key={it.href} it={it} path={path} />)}
+      {extras.length > 0 && (
+        <details className="nav-mais desktop-only" ref={mais}>
+          <summary aria-current={extraAtivo ? "page" : undefined}>
+            <span className="nav-ico"><Icon name="mais" /></span><span className="nav-long">Mais</span><span aria-hidden className="nav-seta">▾</span>
+          </summary>
+          <div className="nav-mais-menu">{extras.map((it) => <Item key={it.href} it={{ ...it, desktopOnly: false }} path={path} />)}</div>
+        </details>
+      )}
     </nav>
   );
 }

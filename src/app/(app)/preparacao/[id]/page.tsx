@@ -7,6 +7,7 @@ import { getCatalogo } from "@/lib/catalogo";
 import { config } from "@/lib/config";
 import { emailsCoordenadores } from "@/lib/configuracoes";
 import { rotuloAba } from "@/lib/lojas";
+import { motoPorPlaca } from "@/lib/estoque";
 import { ETAPAS, getItem } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 import { EmailCard } from "../EmailCard";
@@ -41,6 +42,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   const email = montarEmail(plano);
   const editar = podeEditarPreparacao(perfil);
   const abertas = atividades.filter((a) => a.aberta);
+  const moto = item.placa ? await motoPorPlaca(item.placa).catch(() => null) : null;
 
   return (
     <>
@@ -53,6 +55,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
             {item.diasTotal != null && <> · {item.diasTotal}d em preparação</>}
             {item.responsavel && <> · {item.responsavel}</>}
           </p>
+          {moto && <Link href={`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`} className="btn small ghost" style={{ marginTop: 10 }}>Ficha e fotos da moto →</Link>}
         </div>
       </div>
 

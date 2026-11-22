@@ -92,3 +92,21 @@ export function montarEmail(p: Partial<Record<string, string>>): { assunto: stri
 export function listaEmails(v: string): string {
   return v.split(/[;,\s]+/).map((s) => s.trim()).filter(Boolean).join(",");
 }
+
+export type ResumoChecklist = {
+  geral: "ok" | "pendente" | "incompleto";
+  pendentes: number;
+  itens: { label: string; estado: EstadoItem; obs: string }[];
+  prepId: string; etapa: string; recebida: string; ultimaRevisao: string; responsavel: string;
+};
+
+/** Resumo do checklist 360 de uma moto (para o estoque e a ficha da moto). */
+export function resumoChecklist(p: Partial<Record<string, string>>): ResumoChecklist {
+  const itens = CHECKLIST.map((def) => ({ label: def.label, ...lerItem(def, p[def.campo]) }));
+  const pendentes = itens.filter((i) => i.estado === "pendente").length;
+  const vazios = itens.filter((i) => i.estado === "vazio").length;
+  return {
+    geral: pendentes ? "pendente" : vazios ? "incompleto" : "ok", pendentes, itens,
+    prepId: p.id ?? "", etapa: p.etapa ?? "", recebida: p.dataRecepcao ?? "", ultimaRevisao: p.ultimaRevisao ?? "", responsavel: p.responsavel ?? "",
+  };
+}

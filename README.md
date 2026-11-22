@@ -16,6 +16,7 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 | **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
 | **Catálogo** | Gestor | Marcas e modelos (tipo, cilindrada, anos, apelidos) e **segmentos de equivalência** entre marcas. Base do autocompletar e dos leads. |
 | **Minha meta** | Vendedor (gestor vê de todos) | Anel da meta, ritmo por dia de loja, projeção, distância no ranking, FIN/G.E/usado × equipe, histórico e plano do dia. |
+| **Tarefas / Atividades** | Vendedor: leads sem Syonet. Gestor: cobrança por vendedor (uma linha, prioridade pela quantidade; "Cobrei" esconde por 24 h) + pendências da 360 | |
 | **Leads** | Vendedor (só os seus), Gestor (todos) | Cliente + moto desejada. Oportunidades quando entra no estoque/preparação a moto exata ou equivalente; ligar, WhatsApp com mensagem pronta, registrar contato, retornos do dia. |
 | **Cadastro** | Gestor | Equipe com senha individual (vendedor, preparador, gestor), redefinir senha/desativar, vínculo com o vendedor da planilha, e-mails dos coordenadores. |
 
@@ -38,9 +39,15 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 - `SENHA_VENDEDOR` / `SENHA_PREPARADOR` (genéricas) só valem enquanto não houver ninguém cadastrado naquele perfil.
 - Redefinir a senha, mudar o perfil ou desativar derruba as sessões abertas da pessoa.
 
-## Abas criadas pelo app (planilha de estoque)
+## Planilhas
 
-`Motos em Preparação` (colunas extras), `Atividades`, `Catálogo Motos`, `Usuários App`, `Configurações App`, `Leads`, `Backup Ajustes App`.
+- **MOTOS 2026** (`SHEET_VENDAS_ID`): vendas.
+- **Estoque Motos / Realinhamento** (`SHEET_ESTOQUE_ID`): `Estoque CTBA`, `Estoque LOND` (+ colunas Marca/Tipo) e `Motos em Preparação`.
+- **Servopa Seminovos - App** (`SHEET_APP_ID`): dados do app — `Usuários App`, `Configurações App`, `Leads`, `Atividades`, `Cobranças`, `Catálogo Motos`, `Fotos`, `Backup Ajustes App`.
+
+## Fotos das motos
+
+Arquivos no **Vercel Blob** (na Vercel: Storage → Create → Blob → conectar ao projeto; cria `BLOB_READ_WRITE_TOKEN`). As fotos são reduzidas no navegador (máx. 1600 px) e o endereço fica na aba `Fotos`. Também é possível adicionar foto por link.
 
 ## Configuração
 

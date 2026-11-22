@@ -25,6 +25,11 @@ export function LeadForm({ lead, catalogo, vendedores }: { lead: LeadVM | null; 
             <div className="field span-2"><label htmlFor="cliente">Nome</label><input id="cliente" name="cliente" className="input" defaultValue={lead?.cliente} required /></div>
             <div className="field"><label htmlFor="telefone">Telefone / WhatsApp</label><input id="telefone" name="telefone" className="input" inputMode="tel" defaultValue={lead?.telefone} required placeholder="41 99999-9999" /></div>
             <div className="field"><label htmlFor="email">E-mail</label><input id="email" name="email" type="email" className="input" defaultValue={lead?.email} /></div>
+            <div className="field">
+              <label htmlFor="syonet">Syonet (nº do lead)</label>
+              <input id="syonet" name="syonet" className="input mono" defaultValue={lead?.syonet} placeholder="ainda não cadastrado" />
+              {!lead?.syonet && <span className="combo-hint">Sem o número, o lead vira uma pendência sua em Tarefas.</span>}
+            </div>
             {vendedores.length > 0 && (
               <div className="field">
                 <label htmlFor="vendedorId">Vendedor responsável</label>

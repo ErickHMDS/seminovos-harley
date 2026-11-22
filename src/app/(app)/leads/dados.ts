@@ -6,7 +6,7 @@ import { getPreparacao } from "@/lib/preparacao";
 import type { Sessao } from "@/lib/sessao";
 
 export type LeadVM = {
-  id: string; cliente: string; telefone: string; email: string; desejo: string; marca: string; modelo: string; tipo: string; segmento: string;
+  id: string; cliente: string; telefone: string; email: string; syonet: string; desejo: string; marca: string; modelo: string; tipo: string; segmento: string;
   anoMin: string; valorMax: string; aceitaEquivalente: boolean; pagamento: string; usado: string; status: string; proximoContato: string;
   ultimoContato: string; observacoes: string; historico: string; vendedor: string; vendedorId: string; criadoEm: string;
   retornoHoje: boolean; matches: Match[];
@@ -14,7 +14,7 @@ export type LeadVM = {
 
 export function vm(l: Lead, matches: Match[]): LeadVM {
   return {
-    id: l.id, cliente: l.cliente, telefone: l.telefone, email: l.email, marca: l.marca, modelo: l.modelo, tipo: l.tipo, segmento: l.segmento,
+    id: l.id, cliente: l.cliente, telefone: l.telefone, email: l.email, syonet: l.syonet, marca: l.marca, modelo: l.modelo, tipo: l.tipo, segmento: l.segmento,
     desejo: [l.marca, l.modelo].filter(Boolean).join(" ") || (l.tipo ? `Qualquer ${l.tipo}` : "—"),
     anoMin: l.anoMin, valorMax: l.valorMax, aceitaEquivalente: l.aceitaEquivalente !== "NÃO", pagamento: l.pagamento, usado: l.usado,
     status: l.status, proximoContato: l.proximoContato, ultimoContato: l.ultimoContato, observacoes: l.observacoes, historico: l.historico,

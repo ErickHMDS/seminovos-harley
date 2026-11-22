@@ -1,5 +1,6 @@
 "use server";
-import { registrarContato, salvarLead, type LeadInput } from "@/lib/leads";
+import { concluirCobranca } from "@/lib/cobrancas";
+import { registrarContato, registrarSyonet, salvarLead, type LeadInput } from "@/lib/leads";
 import { exigirSessao } from "@/lib/sessao";
 import { getUsuarios } from "@/lib/usuarios";
 
@@ -20,7 +21,7 @@ export async function salvarLeadAction(_: LeadState, form: FormData): Promise<Le
   const s = await exigirSessao("/leads");
   const g = (k: string) => String(form.get(k) ?? "").trim();
   const d: LeadInput = {
-    cliente: g("cliente"), telefone: g("telefone"), email: g("email"), marca: g("marca"), modelo: g("modelo"), tipo: g("tipo") || g("tipoLivre"),
+    cliente: g("cliente"), telefone: g("telefone"), email: g("email"), syonet: g("syonet"), marca: g("marca"), modelo: g("modelo"), tipo: g("tipo") || g("tipoLivre"),
     anoMin: g("anoMin"), valorMax: g("valorMax"), aceitaEquivalente: form.get("aceitaEquivalente") === "on", pagamento: g("pagamento"),
     usado: g("usado"), status: g("status") || "NOVO", proximoContato: isoParaBR(g("proximoContato")), observacoes: g("observacoes"),
   };
@@ -40,4 +41,15 @@ export async function salvarLeadAction(_: LeadState, form: FormData): Promise<Le
 export async function contatoAction(id: string, nota: string, placa: string, proximo: string): Promise<LeadState> {
   const s = await exigirSessao("/leads");
   try { await registrarContato(id, s, nota, placa, isoParaBR(proximo)); return { ok: Date.now() }; } catch (e) { return falha(e); }
+}
+
+export async function syonetAction(id: string, valor: string): Promise<LeadState> {
+  const s = await exigirSessao("/leads");
+  try { await registrarSyonet(id, s, valor); return { ok: Date.now() }; } catch (e) { return falha(e); }
+}
+
+export async function cobreiAction(vendedorId: string): Promise<LeadState> {
+  const s = await exigirSessao("/atividades");
+  if (s.perfil !== "gestor") return { erro: "Só o gestor conclui cobranças." };
+  try { await concluirCobranca(vendedorId, s); return { ok: Date.now() }; } catch (e) { return falha(e); }
 }

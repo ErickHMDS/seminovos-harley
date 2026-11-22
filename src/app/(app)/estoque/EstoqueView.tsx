@@ -1,6 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { ChecklistResumo } from "@/components/ChecklistResumo";
+import type { ResumoChecklist } from "@/lib/checklist";
 import { Icon } from "@/components/Icon";
 import type { Moto } from "@/lib/estoque";
 import { fmt } from "@/lib/parse";
@@ -15,9 +19,47 @@ const FAIXAS = [
 const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 type Ordem = "dias" | "preco" | "modelo" | "margem";
 
-export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "" }: {
+export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {} }: {
   motos: Moto[]; verCusto: boolean; editar: boolean; emPreparacao: Record<string, string>; buscaInicial?: string;
+  checklists?: Record<string, ResumoChecklist>; capas?: Record<string, string>;
 }) {
+  const router = useRouter();
+  const [ckAberto, setCkAberto] = useState<string | null>(null);
+  const fichaHref = (m: Moto) => `/estoque/ver?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`;
+  const ponto = (placa: string) => {
+    const r = checklists[placa];
+    if (!r) return null;
+    return <span className={`ck-ponto ${r.geral}`} title={r.geral === "ok" ? "Preparação: tudo OK" : r.geral === "pendente" ? `Preparação: ${r.pendentes} pendência(s)` : "Checklist incompleto"} />;
+  };
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+  useEffect(() => {
+    if (!ckAberto) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setCkAberto(null); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [ckAberto]);
+  const motoCk = motos.find((x) => x.id === ckAberto);
+  const gaveta = montado && motoCk ? createPortal(
+    <div className="ck-gaveta-fundo desktop-only" onClick={() => setCkAberto(null)}>
+      <aside className="ck-gaveta" role="dialog" aria-label={`Preparação de ${motoCk.modelo}`} onClick={(e) => e.stopPropagation()}>
+        <div className="ck-gaveta-head">
+          <div><div className="eyebrow">Preparação</div><strong>{motoCk.modelo}</strong> <span className="plate">{motoCk.placa}</span></div>
+          <button type="button" className="lightbox-fechar" style={{ position: "static" }} onClick={() => setCkAberto(null)} aria-label="Fechar">×</button>
+        </div>
+        <ChecklistResumo r={checklists[motoCk.placa]} />
+        <Link href={fichaHref(motoCk)} className="btn" style={{ marginTop: 14 }}>Abrir ficha da moto</Link>
+      </aside>
+    </div>,
+    document.body,
+  ) : null;
+  const BotaoCk = ({ m }: { m: Moto }) => (
+    <button type="button" className={`ck-btn ${ckAberto === m.id ? "on" : ""} ${checklists[m.placa]?.geral ?? ""}`} aria-expanded={ckAberto === m.id}
+      title="Ver preparação desta moto" aria-label={`Ver preparação de ${m.modelo}`}
+      onClick={(e) => { e.stopPropagation(); e.preventDefault(); setCkAberto(ckAberto === m.id ? null : m.id); }}>
+      <Icon name="lista" size={18} />
+    </button>
+  );
   const [busca, setBusca] = useState(buscaInicial);
   const [cidade, setCidade] = useState("");
   const [marca, setMarca] = useState("");
@@ -55,7 +97,6 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
   const custoTotal = lista.reduce((s, m) => s + (m.custo ?? 0), 0);
   const precoTotal = lista.reduce((s, m) => s + (m.realinhamento ?? 0), 0);
   const margemTotal = lista.reduce((s, m) => s + (m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : 0), 0);
-  const editarHref = (m: Moto) => `/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`;
 
   const chip = (ativo: boolean, onClick: () => void, label: string) => (
     <button type="button" className="chip" aria-pressed={ativo} onClick={onClick} key={label}>{label}</button>
@@ -112,14 +153,18 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
           const prep = emPreparacao[m.placa];
           const conteudo = (
             <>
-              <div className={`moto-days ${tomDias(m.dias)}`}><b>{m.dias ?? "—"}</b><small>dias</small></div>
+              {capas[m.placa]
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={capas[m.placa]} alt="" className="moto-thumb" loading="lazy" />
+                : <div className={`moto-days ${tomDias(m.dias)}`}><b>{m.dias ?? "—"}</b><small>dias</small></div>}
               <div className="moto-info">
-                <div className="moto-name">{m.modelo}</div>
+                <div className="moto-name">{ponto(m.placa)}{m.modelo}</div>
                 <div className="moto-meta">
                   <span className="plate">{m.placa || "—"}</span>
                   <span>{m.ano}</span>
                   {m.km != null && <span>{fmt.int(m.km)} km</span>}
                   <span>{m.cidade === "Curitiba" ? "CTBA" : m.cidade === "Londrina" ? "LDA" : m.cidade}</span>
+                  {capas[m.placa] && <span className={`badge ${tomDias(m.dias)}`}>{m.dias ?? "—"}d</span>}
                 </div>
                 <div className="moto-tags">
                   {!m.anunciada && <span className="badge warn">sem anúncio</span>}
@@ -130,20 +175,29 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
               <div className="moto-price">{m.realinhamento != null ? fmt.brl(m.realinhamento) : <span className="faint">sem preço</span>}</div>
             </>
           );
-          return <li key={m.id}>{editar ? <Link href={editarHref(m)} className="moto-card">{conteudo}</Link> : <div className="moto-card">{conteudo}</div>}</li>;
+          return (
+            <li key={m.id}>
+              <div className="moto-card-wrap">
+                <Link href={fichaHref(m)} className="moto-card">{conteudo}</Link>
+                <BotaoCk m={m} />
+              </div>
+              {ckAberto === m.id && <div className="ck-pop"><ChecklistResumo r={checklists[m.placa]} compacto /></div>}
+            </li>
+          );
         })}
         {lista.length === 0 && <li className="empty">Nenhuma moto com esses filtros.</li>}
       </ul>
 
+      {gaveta}
       {/* computador */}
       <div className="table-wrap desktop-only">
         <table>
           <thead>
             <tr>
-              <th>Placa</th><th>Modelo</th><th>Ano</th><th className="r">Km</th><th>Cor</th><th>Loja</th>
-              <th>Entrada</th><th className="r">Dias</th><th className="r">Preço</th><th className="r">FIPE</th>
+              <th>Placa</th><th>Modelo</th><th>Ano</th><th className="r">Km</th><th className="col-opc">Cor</th><th>Loja</th>
+              <th className="col-opc">Entrada</th><th className="r">Dias</th><th className="r">Preço</th><th className="r col-opc">FIPE</th>
               {verCusto && <><th className="r">Custo</th><th className="r">Margem</th></>}
-              <th>Status</th>{editar && <th />}
+              <th>Status</th><th className="c" title="Preparação">Prep.</th>
             </tr>
           </thead>
           <tbody>
@@ -151,20 +205,21 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
               const margem = m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : null;
               const prep = emPreparacao[m.placa];
               return (
-                <tr key={m.id}>
+                <Fragment key={m.id}>
+                <tr className="row-link" onClick={() => router.push(fichaHref(m))}>
                   <td><span className="plate">{m.placa || "—"}</span></td>
                   <td style={{ minWidth: 180 }}>
-                    <span className="strong">{m.modelo}</span>{prep && <> <span className="badge accent">⚙ {prep.toLowerCase()}</span></>}
+                    {ponto(m.placa)}<span className="strong">{m.modelo}</span>{prep && <> <span className="badge accent">⚙ {prep.toLowerCase()}</span></>}
                     {m.observacao && <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{m.observacao}</div>}
                   </td>
                   <td className="num">{m.ano}</td>
                   <td className="r">{fmt.int(m.km)}</td>
-                  <td className="muted">{m.cor}</td>
+                  <td className="muted col-opc">{m.cor}</td>
                   <td className="muted" style={{ whiteSpace: "nowrap" }}>{m.marca === "TRIUMPH" ? "Triumph" : "Freedom"} · {m.cidade}</td>
-                  <td className="num muted">{fmt.date(m.dataEntrada ? new Date(m.dataEntrada) : null)}</td>
+                  <td className="num muted col-opc">{fmt.date(m.dataEntrada ? new Date(m.dataEntrada) : null)}</td>
                   <td className="r"><span className={`badge ${tomDias(m.dias)}`}>{m.dias ?? "—"}</span></td>
                   <td className="r strong">{fmt.brl(m.realinhamento)}</td>
-                  <td className="r muted">{fmt.brl(m.fipe)}</td>
+                  <td className="r muted col-opc">{fmt.brl(m.fipe)}</td>
                   {verCusto && (
                     <>
                       <td className="r muted">{fmt.brl(m.custo)}</td>
@@ -175,8 +230,9 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
                     </>
                   )}
                   <td><span className={`badge ${m.anunciada ? "ok" : "warn"}`}>{m.status.toLowerCase()}</span></td>
-                  {editar && <td className="r"><Link href={editarHref(m)} className="link-more">Editar</Link></td>}
+                  <td className="c"><BotaoCk m={m} /></td>
                 </tr>
+                </Fragment>
               );
             })}
             {lista.length === 0 && <tr><td colSpan={14} className="empty">Nenhuma moto com esses filtros.</td></tr>}

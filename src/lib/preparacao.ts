@@ -192,3 +192,12 @@ export function proximaEtapa(etapa: string): Etapa | null {
 }
 
 export { hojeBR };
+
+/** Último registro de preparação de cada placa → resumo do checklist 360. */
+export async function checklistPorPlaca(): Promise<Record<string, import("./checklist").ResumoChecklist>> {
+  const { resumoChecklist } = await import("./checklist");
+  const { itens } = await getPreparacao().catch(() => ({ itens: [] as Preparacao[] }));
+  const out: Record<string, import("./checklist").ResumoChecklist> = {};
+  for (const p of [...itens].sort((a, b) => a.linha - b.linha)) if (p.placa) out[p.placa.toUpperCase()] = resumoChecklist(p as unknown as Record<string, string>);
+  return out;
+}

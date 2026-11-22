@@ -21,9 +21,9 @@ function daBase(): ModeloCat[] {
 const int = (v: string) => { const n = parseInt(clean(v).replace(/\D/g, ""), 10); return Number.isFinite(n) ? n : null; };
 
 async function load(): Promise<{ modelos: ModeloCat[]; fonte: "planilha" | "base" }> {
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.catalogoAba)) return { modelos: daBase(), fonte: "base" };
-  const [header = [], ...rows] = await getValues(config.estoqueId, range(config.catalogoAba, "A1:Z"));
+  const [header = [], ...rows] = await getValues(config.appId, range(config.catalogoAba, "A1:Z"));
   const col = indiceCabecalho(header);
   const g = (r: string[], n: string) => clean(r[col(n)] ?? "");
   const modelos = rows
@@ -51,16 +51,16 @@ const linhaDe = (m: Omit<ModeloCat, "id">, id: string): (string | number)[] => [
 
 /** Grava o catálogo base numa aba nova da planilha (uma vez). */
 export async function gravarBaseNaPlanilha() {
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (abas.some((a) => a.title === config.catalogoAba)) return;
-  await addSheet(config.estoqueId, config.catalogoAba);
+  await addSheet(config.appId, config.catalogoAba);
   const linhas = daBase().map((m, i) => linhaDe(m, `M${String(i + 1).padStart(4, "0")}`));
-  await updateValues(config.estoqueId, range(config.catalogoAba, "A1"), [CABECALHO, ...linhas]);
+  await updateValues(config.appId, range(config.catalogoAba, "A1"), [CABECALHO, ...linhas]);
   invalidate("catalogo");
 }
 
 async function localizar(id: string) {
-  const [header = [], ...rows] = await getValues(config.estoqueId, range(config.catalogoAba, "A1:Z"));
+  const [header = [], ...rows] = await getValues(config.appId, range(config.catalogoAba, "A1:Z"));
   const col = indiceCabecalho(header);
   const n = rows.findIndex((r, i) => (clean(r[col("ID")] ?? "") || `L${i + 2}`) === id);
   if (n < 0) throw new Error("Modelo não encontrado no catálogo (pode ter sido removido na planilha).");
@@ -71,7 +71,7 @@ export async function salvarModelo(id: string | null, m: Omit<ModeloCat, "id">):
   await gravarBaseNaPlanilha();
   if (!id) {
     const novoId = `M${Date.now().toString(36).toUpperCase()}`;
-    await appendValues(config.estoqueId, range(config.catalogoAba, "A1"), [linhaDe(m, novoId)]);
+    await appendValues(config.appId, range(config.catalogoAba, "A1"), [linhaDe(m, novoId)]);
     invalidate("catalogo");
     return novoId;
   }
@@ -80,14 +80,14 @@ export async function salvarModelo(id: string | null, m: Omit<ModeloCat, "id">):
   const data = CABECALHO.map((nome, i) => ({ c: col(nome), v: valores[i] }))
     .filter(({ c }) => c >= 0)
     .map(({ c, v }) => ({ range: range(config.catalogoAba, `${colLetra(c)}${linha}`), values: [[v]] }));
-  await batchUpdateValues(config.estoqueId, data);
+  await batchUpdateValues(config.appId, data);
   invalidate("catalogo");
   return id;
 }
 
 export async function excluirModelo(id: string) {
   const { linha } = await localizar(id);
-  const sheet = (await listSheets(config.estoqueId)).find((a) => a.title === config.catalogoAba)!;
-  await batchUpdateSheet(config.estoqueId, [reqExcluirLinha(sheet.sheetId, linha - 1)]);
+  const sheet = (await listSheets(config.appId)).find((a) => a.title === config.catalogoAba)!;
+  await batchUpdateSheet(config.appId, [reqExcluirLinha(sheet.sheetId, linha - 1)]);
   invalidate("catalogo");
 }

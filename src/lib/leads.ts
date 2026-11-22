@@ -6,13 +6,13 @@ import { getCatalogo } from "./catalogo";
 import type { Moto } from "./estoque";
 import { identificar, segmentoPadrao, type ModeloCat } from "./motos";
 import { TZ, clean, date, num } from "./parse";
-import { colLetra, indiceCabecalho, valorSeguro } from "./planilha";
+import { colLetra, garantirColunas, indiceCabecalho, valorSeguro } from "./planilha";
 import type { Sessao } from "./sessao";
 
 /** Leads (aba "Leads" da planilha de estoque). */
 const COLS = {
   id: "ID", criadoEm: "Criado Em", vendedorId: "Vendedor ID", vendedor: "Vendedor", cliente: "Cliente", telefone: "Telefone",
-  email: "E-mail", marca: "Marca", modelo: "Modelo", tipo: "Tipo", segmento: "Segmento", anoMin: "Ano Mínimo",
+  email: "E-mail", syonet: "Syonet", marca: "Marca", modelo: "Modelo", tipo: "Tipo", segmento: "Segmento", anoMin: "Ano Mínimo",
   valorMax: "Valor Máximo", aceitaEquivalente: "Aceita Equivalente", pagamento: "Pagamento", usado: "Usado na Troca",
   status: "Status", proximoContato: "Próximo Contato", ultimoContato: "Último Contato", avisadas: "Motos Avisadas",
   observacoes: "Observações", historico: "Histórico", atualizadoEm: "Atualizado Em",
@@ -35,9 +35,9 @@ const hojeBR = () => new Date().toLocaleDateString("pt-BR", { timeZone: TZ });
 const norm = (s: string) => clean(s).toUpperCase();
 
 async function lerAba() {
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.leadsAba)) return { existe: false, header: [] as string[], rows: [] as string[][] };
-  const [header = [], ...rows] = await getValues(config.estoqueId, range(config.leadsAba, "A1:AZ"));
+  const [header = [], ...rows] = await getValues(config.appId, range(config.leadsAba, "A1:AZ"));
   return { existe: true, header, rows };
 }
 
@@ -75,16 +75,16 @@ export async function getLead(id: string, s: Sessao): Promise<Lead | null> {
 async function garantirAba(): Promise<string[]> {
   const { existe, header } = await lerAba();
   if (!existe) {
-    await addSheet(config.estoqueId, config.leadsAba);
+    await addSheet(config.appId, config.leadsAba);
     const novo = CAMPOS.map((c) => COLS[c]);
-    await updateValues(config.estoqueId, range(config.leadsAba, "A1"), [novo]);
+    await updateValues(config.appId, range(config.leadsAba, "A1"), [novo]);
     return novo;
   }
-  return header;
+  return garantirColunas(config.appId, config.leadsAba, CAMPOS.map((c) => COLS[c]));
 }
 
 export type LeadInput = {
-  cliente: string; telefone: string; email: string; marca: string; modelo: string; tipo: string; anoMin: string; valorMax: string;
+  cliente: string; telefone: string; email: string; syonet: string; marca: string; modelo: string; tipo: string; anoMin: string; valorMax: string;
   aceitaEquivalente: boolean; pagamento: string; usado: string; status: string; proximoContato: string; observacoes: string;
   vendedorId?: string; vendedor?: string;
 };
@@ -98,7 +98,7 @@ function segmentoDoDesejo(cat: ModeloCat[], marca: string, modelo: string, tipo:
 export async function salvarLead(id: string | null, d: LeadInput, s: Sessao): Promise<string> {
   const { modelos } = await getCatalogo();
   const valores: Partial<Record<Col, string>> = {
-    cliente: d.cliente, telefone: d.telefone, email: d.email, marca: d.marca, modelo: d.modelo, tipo: d.tipo,
+    cliente: d.cliente, telefone: d.telefone, email: d.email, syonet: d.syonet, marca: d.marca, modelo: d.modelo, tipo: d.tipo,
     segmento: segmentoDoDesejo(modelos, d.marca, d.modelo, d.tipo), anoMin: d.anoMin, valorMax: d.valorMax,
     aceitaEquivalente: d.aceitaEquivalente ? "SIM" : "NÃO", pagamento: d.pagamento, usado: d.usado, status: d.status || "NOVO",
     proximoContato: d.proximoContato, observacoes: d.observacoes, atualizadoEm: agora(),
@@ -115,7 +115,7 @@ export async function salvarLead(id: string | null, d: LeadInput, s: Sessao): Pr
     };
     const linha = header.map(() => "");
     for (const c of CAMPOS) if (idx[c] >= 0 && todos[c] != null) linha[idx[c]] = String(valorSeguro(todos[c]!));
-    await appendValues(config.estoqueId, range(config.leadsAba, "A1"), [linha]);
+    await appendValues(config.appId, range(config.leadsAba, "A1"), [linha]);
     invalidate("leads");
     return novoId;
   }
@@ -133,7 +133,7 @@ async function gravar(l: Lead, valores: Partial<Record<Col, string>>, idx?: Reco
   const data = (Object.keys(valores) as Col[])
     .filter((c) => i[c] >= 0 && valores[c] !== undefined)
     .map((c) => ({ range: range(config.leadsAba, `${colLetra(i[c])}${l.linha}`), values: [[valorSeguro(valores[c]!)]] }));
-  await batchUpdateValues(config.estoqueId, data);
+  await batchUpdateValues(config.appId, data);
   invalidate("leads");
 }
 
@@ -189,4 +189,17 @@ export function retornoHoje(l: Lead): boolean {
   const d = date(l.proximoContato);
   const hoje = date(hojeBR());
   return !!d && !!hoje && d <= hoje;
+}
+
+/** Leads sem o número do Syonet = pendência do vendedor (todos os status, exceto Perdido). */
+export const semSyonet = (l: Lead) => !l.syonet && l.status !== "PERDIDO";
+
+export async function registrarSyonet(id: string, s: Sessao, valor: string) {
+  const v = clean(valor);
+  if (!v) throw new Error("Informe o número do Syonet.");
+  invalidate("leads");
+  const l = await getLead(id, s);
+  if (!l) throw new Error("Lead não encontrado (ou de outro vendedor).");
+  await garantirAba();
+  await gravar(l, { syonet: v, historico: `${agora()} — ${s.nome}: cadastrado no Syonet (${v})\n${l.historico}`.slice(0, 4000), atualizadoEm: agora() });
 }

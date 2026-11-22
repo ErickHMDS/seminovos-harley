@@ -7,8 +7,9 @@ import { LeadsView } from "./LeadsView";
 
 export const dynamic = "force-dynamic";
 
-export default async function LeadsPage() {
+export default async function LeadsPage({ searchParams }: { searchParams: Promise<{ f?: string; v?: string }> }) {
   const s = await exigirSessao("/leads");
+  const sp = await searchParams;
   const [leads, usuarios] = await Promise.all([leadsComOportunidades(s), s.perfil === "gestor" ? getUsuarios().catch(() => []) : Promise.resolve([])]);
   const vendedores = usuarios.filter((u) => u.perfil === "vendedor").map((u) => ({ id: u.id, nome: u.nome }));
   return (
@@ -21,7 +22,7 @@ export default async function LeadsPage() {
         </div>
         <AtualizarDados />
       </div>
-      <LeadsView leads={leads} gestor={s.perfil === "gestor"} vendedores={vendedores} nomeVendedor={s.nome} />
+      <LeadsView leads={leads} gestor={s.perfil === "gestor"} vendedores={vendedores} nomeVendedor={s.nome} filtroInicial={sp.f} vendedorInicial={sp.v} />
       <Fab href="/leads/novo" label="Novo lead" />
     </>
   );

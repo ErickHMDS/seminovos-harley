@@ -4,7 +4,8 @@ import { Fab } from "@/components/Fab";
 import { Icon } from "@/components/Icon";
 import { podeVerCusto } from "@/lib/auth";
 import { getEstoque, semCusto } from "@/lib/estoque";
-import { getPreparacao } from "@/lib/preparacao";
+import { capas } from "@/lib/fotos";
+import { checklistPorPlaca, getPreparacao } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 import { EstoqueView } from "./EstoqueView";
 
@@ -15,7 +16,9 @@ const SALVO: Record<string, string> = { nova: "Moto adicionada ao estoque.", edi
 export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ salvo?: string; q?: string }> }) {
   const perfil = await exigirPerfil("/estoque");
   const sp = await searchParams;
-  const [{ motos, atualizadoEm }, prep] = await Promise.all([getEstoque(), getPreparacao().catch(() => null)]);
+  const [{ motos, atualizadoEm }, prep, checklists, fotos] = await Promise.all([
+    getEstoque(), getPreparacao().catch(() => null), checklistPorPlaca().catch(() => ({})), capas().catch(() => ({})),
+  ]);
   const verCusto = podeVerCusto(perfil);
   const editar = perfil === "gestor";
   const emPreparacao = Object.fromEntries(
@@ -34,7 +37,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       {sp.salvo && SALVO[sp.salvo] && <div className="alert ok toast" role="status">{SALVO[sp.salvo]}</div>}
-      <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} editar={editar} emPreparacao={emPreparacao} buscaInicial={sp.salvo && sp.salvo !== "removida" ? sp.q ?? "" : ""} />
+      <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} editar={editar} emPreparacao={emPreparacao} buscaInicial={sp.salvo && sp.salvo !== "removida" ? sp.q ?? "" : ""} checklists={checklists} capas={fotos} />
       {editar && <Fab href="/estoque/moto" label="Nova moto" />}
     </>
   );

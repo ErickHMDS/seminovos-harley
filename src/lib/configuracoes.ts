@@ -11,9 +11,9 @@ export const CHAVES = {
 } as const;
 
 async function load(): Promise<Record<string, string>> {
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.configAba)) return {};
-  const rows = await getValues(config.estoqueId, range(config.configAba, "A2:B"));
+  const rows = await getValues(config.appId, range(config.configAba, "A2:B"));
   return Object.fromEntries(rows.filter((r) => clean(r[0] ?? "")).map((r) => [clean(r[0]), clean(r[1] ?? "")]));
 }
 
@@ -29,15 +29,15 @@ export async function emailsCoordenadores(): Promise<string> {
 
 export async function salvarConfiguracao(chave: keyof typeof CHAVES, valor: string) {
   const def = CHAVES[chave];
-  const abas = await listSheets(config.estoqueId);
+  const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.configAba)) {
-    await addSheet(config.estoqueId, config.configAba);
-    await updateValues(config.estoqueId, range(config.configAba, "A1"), [["Chave", "Valor", "Descrição", "Atualizado Em"]]);
+    await addSheet(config.appId, config.configAba);
+    await updateValues(config.appId, range(config.configAba, "A1"), [["Chave", "Valor", "Descrição", "Atualizado Em"]]);
   }
-  const rows = await getValues(config.estoqueId, range(config.configAba, "A1:A"));
+  const rows = await getValues(config.appId, range(config.configAba, "A1:A"));
   const n = rows.findIndex((r) => clean(r[0] ?? "") === def.nome);
   const linha = [def.nome, valorSeguro(valor), def.descricao, new Date().toLocaleString("pt-BR", { timeZone: TZ })];
-  if (n > 0) await batchUpdateValues(config.estoqueId, [{ range: range(config.configAba, `A${n + 1}`), values: [linha] }]);
-  else await appendValues(config.estoqueId, range(config.configAba, "A1"), [linha]);
+  if (n > 0) await batchUpdateValues(config.appId, [{ range: range(config.configAba, `A${n + 1}`), values: [linha] }]);
+  else await appendValues(config.appId, range(config.configAba, "A1"), [linha]);
   invalidate("config");
 }
