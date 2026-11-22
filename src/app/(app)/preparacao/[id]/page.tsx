@@ -5,6 +5,7 @@ import { getAtividades } from "@/lib/atividades";
 import { inspecaoCompleta, listaEmails, montarEmail } from "@/lib/checklist";
 import { getCatalogo } from "@/lib/catalogo";
 import { config } from "@/lib/config";
+import { emailsCoordenadores } from "@/lib/configuracoes";
 import { rotuloAba } from "@/lib/lojas";
 import { ETAPAS, getItem } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
@@ -68,7 +69,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
       {estoque && MSG_ESTOQUE[estoque] && <div className={`alert ${MSG_ESTOQUE[estoque].tom} ${MSG_ESTOQUE[estoque].tom === "ok" ? "toast" : ""}`} role="status">{MSG_ESTOQUE[estoque].txt}</div>}
 
       {inspecaoCompleta(plano) && (
-        <EmailCard id={item.id} para={listaEmails(config.coordenadorEmail)} assunto={email.assunto} corpo={email.corpo}
+        <EmailCard id={item.id} para={listaEmails(await emailsCoordenadores())} assunto={email.assunto} corpo={email.corpo}
           enviadoEm={item.emailEnviado} editar={editar} destaque={salvo === "registrar" || item.etapa === "INSPEÇÃO"} />
       )}
 

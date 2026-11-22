@@ -8,7 +8,7 @@ export default function LoginPage() {
         <Brand grande />
         <div className="panel">
           <h1 style={{ fontSize: "1.4rem", marginBottom: 4 }}>Entrar</h1>
-          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>Digite a senha do seu perfil (gestor, vendedor ou preparador).</p>
+          <p className="muted" style={{ marginTop: 0, fontSize: 14 }}>Digite a sua senha pessoal.</p>
           <LoginForm />
         </div>
       </div>

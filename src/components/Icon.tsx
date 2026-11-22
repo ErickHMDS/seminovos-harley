@@ -6,6 +6,8 @@ const PATHS: Record<string, React.ReactNode> = {
   leads: (<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />),
   atividades: (<><rect x="4" y="4" width="16" height="17" rx="2" /><path d="M9 3h6v3H9z" /><path d="m8.5 12.5 2 2 4-4" /></>),
   catalogo: (<><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z" /><path d="M4 19a2 2 0 0 1 2-2h13" /><path d="M9 7h6" /><path d="M9 11h4" /></>),
+  cadastro: (<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M19 8v6" /><path d="M16 11h6" /></>),
+  meta: (<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></>),
   plus: (<><path d="M12 5v14" /><path d="M5 12h14" /></>),
   filtro: (<><path d="M4 6h16" /><path d="M7 12h10" /><path d="M10 18h4" /></>),
   sair: (<><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l5-5-5-5" /><path d="M15 12H4" /></>),

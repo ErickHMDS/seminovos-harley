@@ -1,8 +1,8 @@
-/** Sessão simples por perfil, assinada com HMAC (funciona no middleware e no servidor). */
+/** Sessão por pessoa (perfil + id + versão da senha), assinada com HMAC (funciona no middleware e no servidor). */
 
 export const PERFIS = {
   gestor: { label: "Gestor", inicio: "/gestor" },
-  vendedor: { label: "Vendedor", inicio: "/ranking" },
+  vendedor: { label: "Vendedor", inicio: "/meta" },
   preparador: { label: "Preparador", inicio: "/preparacao" },
 } as const;
 export type Perfil = keyof typeof PERFIS;
@@ -18,6 +18,8 @@ export const ACESSO: Record<string, Perfil[]> = {
   "/preparacao": ["gestor", "vendedor", "preparador"],
   "/preparacao/nova": ["gestor", "preparador"],
   "/leads": ["gestor", "vendedor"],
+  "/meta": ["gestor", "vendedor"],
+  "/cadastro": ["gestor"],
   "/atividades": ["gestor"],
   "/catalogo": ["gestor"],
   "/vendas": ["gestor", "vendedor"],
@@ -57,18 +59,21 @@ function iguais(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function criarToken(perfil: Perfil): Promise<{ token: string; maxAge: number }> {
-  const payload = `${perfil}.${Math.floor(Date.now() / 1000) + DURACAO_S}`;
+export type Token = { perfil: Perfil; uid: string; ver: number };
+
+export async function criarToken(perfil: Perfil, uid: string, ver: number): Promise<{ token: string; maxAge: number }> {
+  const payload = `${perfil}.${uid.replace(/[^A-Za-z0-9_-]/g, "")}.${ver}.${Math.floor(Date.now() / 1000) + DURACAO_S}`;
   return { token: `${payload}.${await hmac(payload)}`, maxAge: DURACAO_S };
 }
 
-export async function lerToken(token: string | undefined): Promise<Perfil | null> {
+export async function lerToken(token: string | undefined): Promise<Token | null> {
   if (!token) return null;
-  const [perfil, exp, sig] = token.split(".");
-  if (!perfil || !exp || !sig || !(perfil in PERFIS)) return null;
-  if (Number(exp) < Date.now() / 1000) return null;
+  const partes = token.split(".");
+  if (partes.length !== 5) return null;
+  const [perfil, uid, ver, exp, sig] = partes;
+  if (!(perfil in PERFIS) || !uid || Number(exp) < Date.now() / 1000) return null;
   try {
-    return iguais(sig, await hmac(`${perfil}.${exp}`)) ? (perfil as Perfil) : null;
+    return iguais(sig, await hmac(`${perfil}.${uid}.${ver}.${exp}`)) ? { perfil: perfil as Perfil, uid, ver: Number(ver) || 0 } : null;
   } catch {
     return null;
   }
@@ -90,4 +95,5 @@ export function perfilPelaSenha(senha: string): Perfil | null {
   return null;
 }
 
+export { iguais };
 export const algumaSenhaConfigurada = () => (Object.keys(PERFIS) as Perfil[]).some((p) => !!senhaDoPerfil(p));

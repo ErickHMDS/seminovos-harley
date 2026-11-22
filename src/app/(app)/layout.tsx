@@ -4,26 +4,35 @@ import { Nav, type NavItem } from "@/components/Nav";
 import { NavProgress } from "@/components/NavProgress";
 import { Icon } from "@/components/Icon";
 import { Suspense } from "react";
-import { PERFIS, podeAcessar } from "@/lib/auth";
+import { PERFIS, podeAcessar, type Perfil } from "@/lib/auth";
 import { getAtividades } from "@/lib/atividades";
-import { perfilAtual } from "@/lib/sessao";
+import { sessaoAtual } from "@/lib/sessao";
 import { sair } from "../actions";
 
-const ITENS: NavItem[] = [
+type Item = NavItem & { soDesktopPara?: Perfil[] };
+const ITENS: Item[] = [
   { href: "/gestor", label: "Gestor", short: "Painel", icon: "gestor" },
-  { href: "/ranking", label: "Ranking", short: "Ranking", icon: "ranking" },
+  { href: "/meta", label: "Minha meta", short: "Meta", icon: "meta", soDesktopPara: ["gestor"] },
+  { href: "/ranking", label: "Ranking", short: "Ranking", icon: "ranking", soDesktopPara: ["gestor"] },
   { href: "/preparacao", label: "Preparação", short: "Preparo", icon: "preparacao" },
   { href: "/estoque", label: "Estoque", short: "Estoque", icon: "estoque" },
+  { href: "/leads", label: "Leads", short: "Leads", icon: "leads" },
   { href: "/atividades", label: "Atividades", short: "Tarefas", icon: "atividades" },
   { href: "/catalogo", label: "Catálogo", short: "Catálogo", icon: "catalogo", desktopOnly: true },
-  { href: "/leads", label: "Leads", short: "Leads", icon: "leads", soon: true, desktopOnly: true },
+  { href: "/cadastro", label: "Cadastro", short: "Cadastro", icon: "cadastro", desktopOnly: true },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const perfil = await perfilAtual();
-  if (!perfil) redirect("/login");
+  const sessao = await sessaoAtual();
+  if (!sessao) redirect("/login?sair=1");
+  const perfil = sessao.perfil;
   const abertas = perfil === "gestor" ? (await getAtividades().catch(() => [])).filter((a) => a.aberta).length : 0;
-  const itens = ITENS.filter((i) => podeAcessar(perfil, i.href)).map((i) => (i.href === "/atividades" ? { ...i, badge: abertas } : i));
+  const itens: NavItem[] = ITENS.filter((i) => podeAcessar(perfil, i.href)).map(({ soDesktopPara, ...i }) => ({
+    ...i,
+    label: i.href === "/meta" && perfil === "gestor" ? "Metas" : i.label,
+    desktopOnly: i.desktopOnly || (soDesktopPara?.includes(perfil) ?? false),
+    badge: i.href === "/atividades" ? abertas : undefined,
+  }));
   return (
     <>
       <Suspense fallback={null}><NavProgress /></Suspense>
@@ -33,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="spacer" />
           <Nav items={itens} />
           <div className="user">
-            <span className="who"><span className="who-dot" />{PERFIS[perfil].label}</span>
+            <span className="who" title={PERFIS[perfil].label}><span className="who-dot" />{sessao.nome.split(" ")[0]} · {PERFIS[perfil].label}</span>
             <form action={sair}>
               <button className="link-btn" type="submit" title="Sair"><Icon name="sair" size={16} /><span className="sair-txt">Sair</span></button>
             </form>

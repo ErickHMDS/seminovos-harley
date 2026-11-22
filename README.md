@@ -15,7 +15,9 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 | **Estoque** | Todos (custo/margem e edição só Gestor) | Busca e filtros. **Gestor adiciona, edita e remove motos.** |
 | **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
 | **Catálogo** | Gestor | Marcas e modelos (tipo, cilindrada, anos, apelidos) e **segmentos de equivalência** entre marcas. Base do autocompletar e dos leads. |
-| **Leads** | — | Em breve. |
+| **Minha meta** | Vendedor (gestor vê de todos) | Anel da meta, ritmo por dia de loja, projeção, distância no ranking, FIN/G.E/usado × equipe, histórico e plano do dia. |
+| **Leads** | Vendedor (só os seus), Gestor (todos) | Cliente + moto desejada. Oportunidades quando entra no estoque/preparação a moto exata ou equivalente; ligar, WhatsApp com mensagem pronta, registrar contato, retornos do dia. |
+| **Cadastro** | Gestor | Equipe com senha individual (vendedor, preparador, gestor), redefinir senha/desativar, vínculo com o vendedor da planilha, e-mails dos coordenadores. |
 
 ## Como o app grava nas planilhas
 
@@ -28,6 +30,17 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 - **Motos em Preparação:** mantém as 9 colunas originais e acrescenta à direita as colunas do app (etapa, checklist 360, datas, fotos…).
 - **Atividades:** aba criada pelo app na planilha de estoque.
 - Antes de editar/excluir, o app confere se a linha ainda é a mesma (placa/vendedor/veículo); se alguém mexeu na planilha no meio do caminho, ele avisa em vez de gravar no lugar errado.
+
+## Acesso
+
+- Cada pessoa tem **senha individual**, criada pelo gestor em **Cadastro** (aba "Usuários App"; a senha fica só em hash).
+- `SENHA_GESTOR` (servidor) é a **senha mestra** do administrador e sempre funciona.
+- `SENHA_VENDEDOR` / `SENHA_PREPARADOR` (genéricas) só valem enquanto não houver ninguém cadastrado naquele perfil.
+- Redefinir a senha, mudar o perfil ou desativar derruba as sessões abertas da pessoa.
+
+## Abas criadas pelo app (planilha de estoque)
+
+`Motos em Preparação` (colunas extras), `Atividades`, `Catálogo Motos`, `Usuários App`, `Configurações App`, `Leads`, `Backup Ajustes App`.
 
 ## Configuração
 

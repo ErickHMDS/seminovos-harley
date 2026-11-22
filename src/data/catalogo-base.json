@@ -193,6 +193,7 @@
 {"marca": "Harley-Davidson", "modelo": "Road King Classic", "tipo": "Touring", "cc": 1690, "anoIni": 2010, "anoFim": 2019, "apelidos": ["FLHRC"]},
 {"marca": "Harley-Davidson", "modelo": "Road King Special", "tipo": "Touring", "cc": 1868, "anoIni": 2017, "anoFim": 2023, "apelidos": ["FLHRXS"]},
 {"marca": "Harley-Davidson", "modelo": "Roadster", "tipo": "Custom", "cc": 1202, "anoIni": 2016, "anoFim": 2020, "apelidos": ["XL1200CX", "SPORTSTER ROADSTER"]},
+{"marca": "Harley-Davidson", "modelo": "Rocker C", "tipo": "Custom", "cc": 1584, "anoIni": 2008, "anoFim": 2011, "apelidos": ["FXCW", "FXCWC", "ROCKER", "SOFTAIL ROCKER"]},
 {"marca": "Harley-Davidson", "modelo": "Seventy-Two", "tipo": "Custom", "cc": 1202, "anoIni": 2012, "anoFim": 2016, "apelidos": ["XL1200V", "72"]},
 {"marca": "Harley-Davidson", "modelo": "Softail Deluxe", "tipo": "Custom", "cc": 1746, "anoIni": 2010, "anoFim": 2022, "apelidos": ["FLSTN", "FLDE", "DELUXE", "DELUX"]},
 {"marca": "Harley-Davidson", "modelo": "Softail Slim", "tipo": "Custom", "cc": 1746, "anoIni": 2012, "anoFim": 2022, "apelidos": ["FLS", "FLSL", "SLIM"]},

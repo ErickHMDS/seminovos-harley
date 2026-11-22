@@ -1,7 +1,8 @@
 "use client";
+import { useFormAction } from "@/components/useFormAction";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { anosTexto, buscar, equivalentes, marcas as listaMarcas, segmentoPadrao, TIPOS, type ModeloCat } from "@/lib/motos";
 import { excluirModeloAction, gravarBaseAction, salvarModeloAction, type CatState } from "./actions";
 
@@ -13,7 +14,7 @@ export type MotoEstoqueVM = {
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 function Form({ inicial, marcas, onFechar }: { inicial: ModeloCat | null; marcas: string[]; onFechar: () => void }) {
-  const [state, action, pending] = useActionState<CatState, FormData>(salvarModeloAction, {});
+  const [state, onSubmit, pending] = useFormAction<CatState>(salvarModeloAction, {});
   const router = useRouter();
   const [tipo, setTipo] = useState(inicial?.tipo ?? "");
   const [cc, setCc] = useState(inicial?.cc ? String(inicial.cc) : "");
@@ -27,7 +28,7 @@ function Form({ inicial, marcas, onFechar }: { inicial: ModeloCat | null; marcas
   useEffect(() => { if (state.ok) { router.refresh(); onFechar(); } }, [state.ok, router, onFechar]);
 
   return (
-    <form ref={ref} action={action} className="sec cat-form">
+    <form ref={ref} onSubmit={onSubmit} className="sec cat-form">
       <div className="sec-head"><h2 className="sec-title">{inicial ? "Editar modelo" : "Novo modelo"}</h2><button type="button" className="link-btn" onClick={onFechar}>Fechar</button></div>
       {inicial && <input type="hidden" name="id" value={inicial.id} />}
       <fieldset disabled={pending || excluindo} style={{ border: 0, padding: 0, margin: 0 }}>

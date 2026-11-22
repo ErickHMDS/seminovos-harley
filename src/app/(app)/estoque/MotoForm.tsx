@@ -1,6 +1,7 @@
 "use client";
+import { useFormAction } from "@/components/useFormAction";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { removerMotoAction, salvarMotoAction, type MotoState } from "./actions";
 
 export type MotoVM = {
@@ -11,7 +12,7 @@ export type MotoVM = {
 const STATUS = ["ANUNCIADO", "NÃO ANUNCIADO", "RESERVADA", "EM PREPARAÇÃO"];
 
 export function MotoForm({ moto, abas, empresas, hoje }: { moto: MotoVM | null; abas: { id: string; label: string }[]; empresas: Record<string, string[]>; hoje: string }) {
-  const [state, action, pending] = useActionState<MotoState, FormData>(salvarMotoAction, {});
+  const [state, onSubmit, pending] = useFormAction<MotoState>(salvarMotoAction, {});
   const router = useRouter();
   const [aba, setAba] = useState(moto?.aba ?? abas[0]?.id ?? "");
   const [confirmar, setConfirmar] = useState(false);
@@ -22,7 +23,7 @@ export function MotoForm({ moto, abas, empresas, hoje }: { moto: MotoVM | null; 
   const v = (k: keyof MotoVM) => (moto ? String(moto[k] ?? "") : "");
 
   return (
-    <form action={action} className="prep-form">
+    <form onSubmit={onSubmit} className="prep-form">
       {moto && <><input type="hidden" name="linha" value={moto.linha} /><input type="hidden" name="placaOriginal" value={moto.placa} /><input type="hidden" name="aba" value={moto.aba} /></>}
       <fieldset disabled={pending || removendo}>
         <section className="sec">

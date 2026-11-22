@@ -72,7 +72,8 @@ export default async function GestorPage() {
         </div>
         <div className="head-actions">
           <AtualizarDados em={base.atualizadoEm} />
-          <Link href="/catalogo" className="btn ghost small">Catálogo de motos</Link>
+          <Link href="/cadastro" className="btn ghost small">Cadastro</Link>
+          <Link href="/catalogo" className="btn ghost small">Catálogo</Link>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useFormAction } from "@/components/useFormAction";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ModeloPicker } from "@/components/ModeloPicker";
 import { CHECKLIST, lerItem, type EstadoItem } from "@/lib/checklist";
@@ -38,7 +39,7 @@ type Estado = Record<string, { estado: EstadoItem; obs: string }>;
 export function PrepForm({ item, editar, sugestoes, hoje = "", catalogo = [], lojas = [] }: {
   item: Item | null; editar: boolean; sugestoes: Sugestao[]; hoje?: string; catalogo?: ModeloCat[]; lojas?: LojaOpt[];
 }) {
-  const [state, action, pending] = useActionState<SalvarState, FormData>(salvarPreparacao, {});
+  const [state, onSubmit, pending] = useFormAction<SalvarState>(salvarPreparacao, {});
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const acaoRef = useRef<HTMLInputElement>(null);
@@ -102,7 +103,7 @@ export function PrepForm({ item, editar, sugestoes, hoje = "", catalogo = [], lo
   };
 
   return (
-    <form ref={formRef} action={action} className="prep-form">
+    <form ref={formRef} onSubmit={onSubmit} className="prep-form">
       {item && <input type="hidden" name="id" value={item.id} />}
       <input type="hidden" name="acao" ref={acaoRef} />
       <fieldset disabled={!editar || pending}>

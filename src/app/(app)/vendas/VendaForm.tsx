@@ -1,6 +1,7 @@
 "use client";
+import { useFormAction } from "@/components/useFormAction";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { apagarVenda, salvarVenda, type VendaState } from "./actions";
 
 export type VendaVM = {
@@ -28,7 +29,7 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
 export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir }: {
   venda: VendaVM | null; vendedores: string[]; motos: { placa: string; modelo: string }[]; hoje: string; podeExcluir: boolean;
 }) {
-  const [state, action, pending] = useActionState<VendaState, FormData>(salvarVenda, {});
+  const [state, onSubmit, pending] = useFormAction<VendaState>(salvarVenda, {});
   const router = useRouter();
   const [excluindo, startExcluir] = useTransition();
   const [confirmar, setConfirmar] = useState(false);
@@ -54,7 +55,7 @@ export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir }: {
   }
 
   return (
-    <form action={action} className="prep-form">
+    <form onSubmit={onSubmit} className="prep-form">
       {venda && <>
         <input type="hidden" name="aba" value={venda.aba} />
         <input type="hidden" name="linha" value={venda.linha} />

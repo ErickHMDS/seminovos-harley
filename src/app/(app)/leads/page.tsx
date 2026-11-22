@@ -1,33 +1,28 @@
-import { exigirPerfil } from "@/lib/sessao";
+import { AtualizarDados } from "@/components/AtualizarDados";
+import { Fab } from "@/components/Fab";
+import { exigirSessao } from "@/lib/sessao";
+import { getUsuarios } from "@/lib/usuarios";
+import { leadsComOportunidades } from "./dados";
+import { LeadsView } from "./LeadsView";
+
+export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
-  await exigirPerfil("/leads");
+  const s = await exigirSessao("/leads");
+  const [leads, usuarios] = await Promise.all([leadsComOportunidades(s), s.perfil === "gestor" ? getUsuarios().catch(() => []) : Promise.resolve([])]);
+  const vendedores = usuarios.filter((u) => u.perfil === "vendedor").map((u) => ({ id: u.id, nome: u.nome }));
   return (
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Em breve</div>
+          <div className="eyebrow">{s.perfil === "gestor" ? "Todos os vendedores" : "Seus clientes"}</div>
           <h1>Leads</h1>
-          <p>Cada vendedor registra os clientes interessados e a moto que procuram.</p>
+          <p>Quando entra uma moto igual ou equivalente à que o cliente quer, ela aparece aqui para você ligar.</p>
         </div>
+        <AtualizarDados />
       </div>
-      <div className="grid grid-2">
-        <div className="panel">
-          <h2 style={{ marginBottom: 10 }}>Como vai funcionar</h2>
-          <ul className="muted" style={{ paddingLeft: 18, margin: 0, lineHeight: 1.8 }}>
-            <li>O vendedor cadastra o lead: nome, contato, marca/modelo desejado, faixa de preço.</li>
-            <li>Quando uma moto compatível entra em <b>preparação</b> ou no <b>estoque</b>, o app avisa o vendedor.</li>
-            <li>Lista de retorno: quem ligar hoje, com histórico dos contatos.</li>
-            <li>O gestor acompanha a conversão de leads por vendedor.</li>
-          </ul>
-        </div>
-        <div className="panel">
-          <h2 style={{ marginBottom: 10 }}>O que precisamos</h2>
-          <p className="muted" style={{ margin: 0 }}>
-            Uma planilha (ou aba) de leads compartilhada com a conta de serviço do app. Quando ela existir, esta área passa a funcionar.
-          </p>
-        </div>
-      </div>
+      <LeadsView leads={leads} gestor={s.perfil === "gestor"} vendedores={vendedores} nomeVendedor={s.nome} />
+      <Fab href="/leads/novo" label="Novo lead" />
     </>
   );
 }

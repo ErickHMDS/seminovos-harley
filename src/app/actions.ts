@@ -1,7 +1,8 @@
 "use server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { COOKIE, PERFIS, algumaSenhaConfigurada, criarToken, perfilPelaSenha } from "@/lib/auth";
+import { COOKIE, PERFIS, criarToken } from "@/lib/auth";
+import { autenticar } from "@/lib/usuarios";
 import { opcoesCookie } from "@/lib/cookie";
 import { invalidate } from "@/lib/cache";
 import { perfilAtual } from "@/lib/sessao";
@@ -10,15 +11,14 @@ export type LoginState = { erro?: string };
 
 export async function entrar(_: LoginState, form: FormData): Promise<LoginState> {
   const senha = String(form.get("senha") ?? "");
-  if (!algumaSenhaConfigurada()) return { erro: "Nenhuma senha configurada no servidor (SENHA_GESTOR, SENHA_VENDEDOR, SENHA_PREPARADOR)." };
-  const perfil = perfilPelaSenha(senha);
-  if (!perfil) {
-    await new Promise((r) => setTimeout(r, 600)); // atrasa tentativas repetidas
+  const quem = await autenticar(senha).catch(() => null);
+  if (!quem) {
+    await new Promise((r) => setTimeout(r, 700)); // atrasa tentativas repetidas
     return { erro: "Senha incorreta." };
   }
-  const { token, maxAge } = await criarToken(perfil);
+  const { token, maxAge } = await criarToken(quem.perfil, quem.uid, quem.ver);
   (await cookies()).set(COOKIE, token, await opcoesCookie(maxAge));
-  redirect(PERFIS[perfil].inicio);
+  redirect(PERFIS[quem.perfil].inicio);
 }
 
 export async function sair() {
