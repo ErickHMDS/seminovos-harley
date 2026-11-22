@@ -86,6 +86,7 @@ export async function importarDoDrive(placa: string, link: string | null, s: Ses
       `F${(base + n).toString(36).toUpperCase()}`, p, urlDrive(f.id), atuais.length + n + 1, agora, valorSeguro(`${s.nome} (Drive)`),
     ]));
     invalidate("fotos");
+    await contarFotosNaPreparacao(p);
   }
   return { novas: novas.length, achadas: r.fotos.length, pastas: r.pastas };
 }
@@ -107,7 +108,15 @@ export async function adicionarFoto(placa: string, origem: File | string, s: Ses
   } else {
     if (!origem.type.startsWith("image/")) throw new Error("Envie um arquivo de imagem.");
     if (origem.size > 8 * 1024 * 1024) throw new Error("Imagem muito grande (máx. 8 MB).");
-    url = await guardarArquivo(p, origem);
+    const drive = await import("./drive");
+    if (await drive.pastaConfigurada()) {
+      // vai direto para a pasta da moto no Google Drive
+      const { motoPorPlaca } = await import("./estoque");
+      const modelo = (await motoPorPlaca(p).catch(() => null))?.modelo ?? "";
+      url = drive.urlDrive(await drive.enviarFotoParaDrive(p, modelo, origem));
+    } else {
+      url = await guardarArquivo(p, origem);
+    }
   }
   await garantirAba();
   const ordem = (await fotosDaPlaca(p)).length + 1;
@@ -115,6 +124,18 @@ export async function adicionarFoto(placa: string, origem: File | string, s: Ses
     `F${Date.now().toString(36).toUpperCase()}`, p, valorSeguro(url), ordem, new Date().toLocaleString("pt-BR", { timeZone: TZ }), valorSeguro(s.nome),
   ]]);
   invalidate("fotos");
+  await contarFotosNaPreparacao(p);
+}
+
+/** Mantém "Qtd Fotos Oficiais" da preparação igual ao número de fotos da moto no app. */
+export async function contarFotosNaPreparacao(placa: string) {
+  try {
+    const { getPreparacao, atualizar } = await import("./preparacao");
+    const item = (await getPreparacao()).itens.filter((x) => x.placa.toUpperCase() === placa).pop();
+    if (!item) return;
+    const n = String((await fotosDaPlaca(placa)).length);
+    if (item.fotosOficiais !== n) await atualizar(item.id, { fotosOficiais: n });
+  } catch (e) { console.error("Não foi possível atualizar a quantidade de fotos", e); }
 }
 
 export async function removerFoto(id: string): Promise<void> {

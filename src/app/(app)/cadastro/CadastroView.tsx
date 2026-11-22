@@ -2,7 +2,7 @@
 import { useFormAction } from "@/components/useFormAction";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, salvarPastaDrive, criarPastasAction, sugerirSenha, type CadState } from "./actions";
+import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, salvarPastaDrive, criarPastasAction, salvarPonteDrive, sugerirSenha, type CadState } from "./actions";
 
 export type PessoaVM = { id: string; nome: string; perfil: "gestor" | "vendedor" | "preparador"; vendedor: string; telefone: string; ativo: boolean; atualizadoEm: string };
 export type VendedorVM = { nome: string; curto: string; pos: number; vendas: number; objetivo: number | null };
@@ -195,7 +195,37 @@ function PastaDrive({ pasta, conta }: { pasta: string; conta: string }) {
   );
 }
 
-export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", conta = "" }: { pessoas: PessoaVM[]; vendedores: VendedorVM[]; emails: string; url: string; pasta?: string; conta?: string }) {
+function PonteDrive({ ponte, codigo }: { ponte: string; codigo: string }) {
+  const [state, onSubmit, pending] = useFormAction<CadState & { msg?: string }>(salvarPonteDrive, {});
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <details className="sec ponte" open={!ponte}>
+      <summary><strong>Enviar fotos pelo app</strong> <span className={`badge ${ponte ? "ok" : "warn"}`}>{ponte ? "ponte ativa" : "falta configurar"}</span></summary>
+      <p className="faint" style={{ fontSize: 13 }}>
+        O Google não deixa a conta do app guardar arquivos. Esta “ponte” roda na <b>sua</b> conta Google (a dona da pasta “Fotos Motos”) e grava ali as fotos enviadas pelo app. É feito uma vez só:
+      </p>
+      <ol className="passos">
+        <li>Abra <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener noreferrer">script.google.com → Novo projeto</a> (logado na conta dona da pasta).</li>
+        <li>Apague o que estiver lá, cole o código abaixo e salve (ícone de disquete).</li>
+        <li>No topo, escolha a função <b>autorizar</b> → <b>Executar</b> → autorize o acesso ao Drive.</li>
+        <li><b>Implantar → Nova implantação</b> → tipo <b>App da Web</b>: “Executar como: <b>Eu</b>”, “Quem pode acessar: <b>Qualquer pessoa</b>” → Implantar.</li>
+        <li>Copie o <b>URL do app da Web</b> (termina em /exec), cole aqui embaixo e clique em Salvar e testar.</li>
+      </ol>
+      <div className="ponte-codigo">
+        <textarea readOnly value={codigo} rows={8} className="input mono" onFocus={(e) => e.currentTarget.select()} />
+        <button type="button" className="btn small ghost" onClick={() => { navigator.clipboard?.writeText(codigo); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}>{copiado ? "Copiado ✓" : "Copiar código"}</button>
+      </div>
+      <form onSubmit={onSubmit} className="quick-add" style={{ marginTop: 10, marginBottom: 0 }}>
+        <input name="ponte" className="input" defaultValue={ponte} placeholder="https://script.google.com/macros/s/…/exec" />
+        <button className="btn" disabled={pending}>{pending ? "Testando…" : "Salvar e testar"}</button>
+      </form>
+      {state.erro && <div className="alert bad" style={{ marginTop: 10 }}>{state.erro}</div>}
+      {state.ok && <div className="alert ok" style={{ marginTop: 10 }}>{state.msg}</div>}
+    </details>
+  );
+}
+
+export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", conta = "", ponte = "", codigoPonte = "" }: { pessoas: PessoaVM[]; vendedores: VendedorVM[]; emails: string; url: string; pasta?: string; conta?: string; ponte?: string; codigoPonte?: string }) {
   const [nova, setNova] = useState<{ preset: Partial<PessoaVM> | null } | null>(null);
   const [filtro, setFiltro] = useState<"" | PessoaVM["perfil"]>("");
   const comAcesso = new Map(pessoas.filter((p) => p.perfil === "vendedor" && p.vendedor).map((p) => [p.vendedor, p]));
@@ -242,6 +272,7 @@ export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", con
       <section style={{ marginTop: 24 }}>
         <Coordenadores emails={emails} />
         <PastaDrive pasta={pasta} conta={conta} />
+        {pasta && <PonteDrive ponte={ponte} codigo={codigoPonte} />}
         <p className="faint" style={{ fontSize: 12, marginTop: 10 }}>
           A senha mestra do administrador fica no servidor (variável SENHA_GESTOR) e sempre funciona — use-a se alguém perder o acesso.
           As senhas da equipe ficam embaralhadas (hash) na aba “Usuários App”; ninguém consegue lê-las na planilha.

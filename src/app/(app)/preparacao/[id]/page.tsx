@@ -9,7 +9,9 @@ import { config } from "@/lib/config";
 import { emailsCoordenadores } from "@/lib/configuracoes";
 import { rotuloAba } from "@/lib/lojas";
 import { motoPorPlaca } from "@/lib/estoque";
-import { linkPasta, pastaDaPlaca } from "@/lib/drive";
+import { linkPasta, pastaConfigurada, pastaDaPlaca } from "@/lib/drive";
+import { armazenamentoConfigurado, fotosDaPlaca } from "@/lib/fotos";
+import { Galeria } from "../../estoque/Galeria";
 import { ETAPAS, getItem } from "@/lib/preparacao";
 import { exigirPerfil } from "@/lib/sessao";
 import { EmailCard } from "../EmailCard";
@@ -22,6 +24,7 @@ const MSG: Record<string, string> = {
   salvar: "Alterações salvas.",
   avancar: "Moto avançou para a próxima etapa.",
   voltar: "Moto voltou para a etapa anterior.",
+  retroativa: "Preparação criada com os dados do estoque. Complete o checklist 360 (chave, manual, revisões…) e as fotos, e salve.",
 };
 
 const MSG_ESTOQUE: Record<string, { txt: string; tom: string }> = {
@@ -49,6 +52,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
   if (perfil === "vendedor" && moto) redirect(`/estoque/ver?${new URLSearchParams({ aba: moto.aba, linha: String(moto.linha) })}`);
   const soLeitura = perfil === "vendedor";
   const pasta = !soLeitura && item.placa ? await pastaDaPlaca(item.placa).catch(() => null) : null;
+  const temDrive = !!(await pastaConfigurada().catch(() => null));
 
   return (
     <>
@@ -107,6 +111,14 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
               <li key={a.id} className={a.aberta ? "" : "done"}><span className="dot-state" />{a.descricao}{!a.aberta && a.resolucao ? <span className="faint"> — {a.resolucao}</span> : null}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {!soLeitura && item.placa && idx >= 2 && (
+        <section className="sec prep-fotos" style={{ marginBottom: 16 }}>
+          <div className="sec-head"><h2 className="sec-title">Fotos oficiais</h2><span className="faint" style={{ fontSize: 13 }}>vão para a pasta da moto no Drive</span></div>
+          <Galeria fotos={(await fotosDaPlaca(item.placa)).map((f) => ({ id: f.id, url: f.url }))} placa={item.placa} editar modelo={item.modelo}
+            armazenamento={armazenamentoConfigurado() || temDrive} drive={temDrive} pastaDrive={pasta ? linkPasta(pasta.id) : null} />
         </section>
       )}
 

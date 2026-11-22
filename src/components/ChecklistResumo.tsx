@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { ResumoChecklist } from "@/lib/checklist";
+import { CriarPreparacao } from "./CriarPreparacao";
 
 /** Checklist 360 de uma moto: verde = OK, vermelho = pendente (não oferecer ainda), cinza = não verificado. */
-export function ChecklistResumo({ r, compacto = false }: { r: ResumoChecklist | null | undefined; compacto?: boolean }) {
-  if (!r) return <div className="ckr-vazio">Sem registro de preparação para esta moto.</div>;
+export function ChecklistResumo({ r, compacto = false, criar = null }: { r: ResumoChecklist | null | undefined; compacto?: boolean; criar?: string | null }) {
+  if (!r) return <div className="ckr-vazio">Sem registro de preparação para esta moto.{criar && <CriarPreparacao placa={criar} />}</div>;
   return (
     <div className={`ckr ${compacto ? "compacto" : ""}`}>
       <div className={`ckr-geral ${r.geral}`}>

@@ -1070,3 +1070,15 @@ a.match-top:hover .match-ir { color: var(--accent-hot); }
 .atv-lista li.feita { opacity: .6; }
 .atv-lista li.feita .dot-state { background: var(--ok); }
 .atv-lista small { display: block; font-size: 12px; margin-top: 2px; }
+
+.criar-prep { display: grid; gap: 6px; margin-top: 10px; justify-items: start; }
+.criar-prep small { font-size: 12px; }
+
+.prep-fotos .sec-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.prep-fotos .galeria-palco { max-height: 420px; }
+
+.ponte summary { cursor: pointer; display: flex; gap: 10px; align-items: center; }
+.ponte .passos { margin: 8px 0 12px; padding-left: 20px; font-size: 14px; display: grid; gap: 4px; }
+.ponte .passos a { color: var(--accent-hot); }
+.ponte-codigo { display: grid; gap: 8px; justify-items: start; }
+.ponte-codigo textarea { width: 100%; font-size: 12px; white-space: pre; }

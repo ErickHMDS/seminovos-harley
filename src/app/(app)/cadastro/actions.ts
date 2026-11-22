@@ -83,3 +83,18 @@ export async function criarPastasAction(): Promise<CadState & { msg?: string }> 
     return { ok: Date.now(), msg: `${r.criadas.length} pasta(s) criada(s), ${r.existentes} já existia(m)${r.ignoradas ? `, ${r.ignoradas} moto(s) sem placa válida` : ""}.` };
   } catch (e) { return falha(e); }
 }
+
+/** Salva o endereço da ponte do Drive depois de testar (ping com o segredo). */
+export async function salvarPonteDrive(_: CadState, form: FormData): Promise<CadState & { msg?: string }> {
+  await exigirPerfil("/cadastro");
+  const url = String(form.get("ponte") ?? "").trim();
+  try {
+    if (!url) { await salvarConfiguracao("ponteDrive", ""); return { ok: Date.now(), msg: "Ponte removida." }; }
+    if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(url) && !(process.env.SHEETS_API_BASE && /^http:\/\/127\.0\.0\.1/.test(url))) return { erro: "Cole o endereço do App da Web (termina em /exec)." };
+    const { chamarPonte } = await import("@/lib/drive");
+    const r = await chamarPonte(url, { ping: true });
+    if (!r.ok) return { erro: `A ponte respondeu, mas recusou: ${r.erro ?? "?"}. Confira se colou o código inteiro (com o SEGREDO).` };
+    await salvarConfiguracao("ponteDrive", url);
+    return { ok: Date.now(), msg: "Ponte funcionando: as fotos enviadas pelo app vão direto para a pasta de cada moto." };
+  } catch (e) { return falha(e); }
+}

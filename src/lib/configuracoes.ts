@@ -8,6 +8,7 @@ import { valorSeguro } from "./planilha";
 /** Configurações editáveis pelo gestor (aba "Configurações App": Chave | Valor | Descrição | Atualizado Em). */
 export const CHAVES = {
   coordenadores: { nome: "coordenadores_email", descricao: "E-mails dos coordenadores (separados por vírgula) — recebem o resumo da inspeção 360" },
+  ponteDrive: { nome: "ponte_drive_url", descricao: "Endereço da ponte (Google Apps Script) que grava as fotos enviadas pelo app na pasta do Drive" },
   pastaDrive: { nome: "pasta_fotos_drive", descricao: "Pasta do Google Drive com as fotos das motos (uma subpasta por placa), compartilhada com a conta de serviço" },
 } as const;
 

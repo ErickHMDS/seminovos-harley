@@ -19,10 +19,10 @@ const FAIXAS = [
 const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 type Ordem = "dias" | "preco" | "modelo" | "margem";
 
-export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {}, inicial = {}, resumo = true }: {
+export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "", checklists = {}, capas = {}, inicial = {}, resumo = true, criarPrep = false }: {
   motos: Moto[]; verCusto: boolean; editar: boolean; emPreparacao: Record<string, string>; buscaInicial?: string;
   checklists?: Record<string, ResumoChecklist>; capas?: Record<string, string>;
-  inicial?: { faixa?: string; cidade?: string; marca?: string }; resumo?: boolean;
+  inicial?: { faixa?: string; cidade?: string; marca?: string }; resumo?: boolean; criarPrep?: boolean;
 }) {
   const router = useRouter();
   const [ckAberto, setCkAberto] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
           <div><div className="eyebrow">Preparação</div><strong>{motoCk.modelo}</strong> <span className="plate">{motoCk.placa}</span></div>
           <button type="button" className="lightbox-fechar" style={{ position: "static" }} onClick={() => setCkAberto(null)} aria-label="Fechar">×</button>
         </div>
-        <ChecklistResumo r={checklists[motoCk.placa]} />
+        <ChecklistResumo r={checklists[motoCk.placa]} criar={criarPrep ? motoCk.placa : null} />
         <Link href={fichaHref(motoCk)} className="btn" style={{ marginTop: 14 }}>Abrir ficha da moto</Link>
       </aside>
     </div>,
@@ -182,7 +182,7 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
                 <Link href={fichaHref(m)} className="moto-card">{conteudo}</Link>
                 <BotaoCk m={m} />
               </div>
-              {ckAberto === m.id && <div className="ck-pop"><ChecklistResumo r={checklists[m.placa]} compacto /></div>}
+              {ckAberto === m.id && <div className="ck-pop"><ChecklistResumo r={checklists[m.placa]} compacto criar={criarPrep ? m.placa : null} /></div>}
             </li>
           );
         })}

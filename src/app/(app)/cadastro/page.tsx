@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { AtualizarDados } from "@/components/AtualizarDados";
 import { CHAVES, emailsCoordenadores, getConfiguracoes } from "@/lib/configuracoes";
 import { emailContaServico } from "@/lib/google";
+import { codigoPonte } from "@/lib/drive";
 import { exigirPerfil } from "@/lib/sessao";
 import { getUsuarios } from "@/lib/usuarios";
 import { getVendas, ranking } from "@/lib/vendas";
@@ -28,7 +29,7 @@ export default async function CadastroPage() {
         </div>
         <AtualizarDados />
       </div>
-      <CadastroView pessoas={pessoas} vendedores={vendedores} emails={emails} url={origem} pasta={cfg[CHAVES.pastaDrive.nome] ?? ""} conta={emailContaServico()} />
+      <CadastroView pessoas={pessoas} vendedores={vendedores} emails={emails} url={origem} pasta={cfg[CHAVES.pastaDrive.nome] ?? ""} conta={emailContaServico()} ponte={cfg[CHAVES.ponteDrive.nome] ?? ""} codigoPonte={codigoPonte()} />
     </>
   );
 }

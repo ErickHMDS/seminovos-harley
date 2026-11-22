@@ -9,6 +9,7 @@ import { getAtividades } from "@/lib/atividades";
 import { monitoramento } from "@/lib/cobrancas";
 import { leadsVisiveis, semSyonet } from "@/lib/leads";
 import { sessaoAtual } from "@/lib/sessao";
+import { aquecer } from "@/lib/aquecer";
 import { sair } from "../actions";
 
 type Item = NavItem & { soDesktopPara?: Perfil[]; menuPara?: Perfil[]; ocultoPara?: Perfil[] };
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sessao = await sessaoAtual();
   if (!sessao) redirect("/login?sair=1");
   const perfil = sessao.perfil;
+  aquecer(perfil);
   const abertas =
     perfil === "gestor"
       ? (await getAtividades().catch(() => [])).filter((a) => a.aberta && a.origem !== "Vendedor").length + (await monitoramento().catch(() => [])).length

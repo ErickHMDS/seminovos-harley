@@ -11,7 +11,7 @@ const ativo = (path: string, href: string, vendasEm = "/ranking") => path === hr
 
 function Item({ it, path, vendasEm }: { it: NavItem; path: string; vendasEm: string }) {
   return (
-    <Link href={it.href} aria-current={ativo(path, it.href, vendasEm) ? "page" : undefined} className={it.desktopOnly ? "desktop-only" : undefined} title={it.label}>
+    <Link href={it.href} prefetch aria-current={ativo(path, it.href, vendasEm) ? "page" : undefined} className={it.desktopOnly ? "desktop-only" : undefined} title={it.label}>
       <span className="nav-ico">
         <Icon name={it.icon} />
         {it.badge ? <span className="nav-badge">{it.badge > 99 ? "99+" : it.badge}</span> : null}

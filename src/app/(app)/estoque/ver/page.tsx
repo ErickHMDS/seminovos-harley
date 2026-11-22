@@ -33,6 +33,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
   ]);
   const interessados = leads.flatMap((l) => l.matches.filter((x) => x.placa === m.placa).map((x) => ({ l, tipo: x.tipoMatch })));
   const gestor = s.perfil === "gestor";
+  const temDrive = !!(await pastaConfigurada().catch(() => null));
   const fipeDif = m.realinhamento != null && m.fipe != null ? m.fipe - m.realinhamento : null;
   const margem = m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : null;
   const descricao = [
@@ -56,7 +57,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
       </div>
       {salvo === "atividade" && <div className="alert ok toast" role="status" style={{ marginBottom: 12 }}>Atividade registrada nesta moto.</div>}
       <div className="ficha">
-        <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado()} drive={!!(await pastaConfigurada().catch(() => null))} pastaDrive={s.perfil !== "vendedor" ? await pastaDaPlaca(m.placa).then((p) => (p ? linkPasta(p.id) : null)).catch(() => null) : null} />
+        <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado() || temDrive} drive={temDrive} pastaDrive={s.perfil !== "vendedor" ? await pastaDaPlaca(m.placa).then((p) => (p ? linkPasta(p.id) : null)).catch(() => null) : null} />
         <div className="ficha-info">
           <div className="eyebrow">{[m.fabricante, m.tipo].filter(Boolean).join(" · ") || "Seminovo"}</div>
           <h1 className="ficha-titulo">{m.modelo}</h1>
@@ -76,7 +77,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
 
           <section className="ficha-bloco">
             <h2>Preparação</h2>
-            <ChecklistResumo r={checklists[m.placa]} />
+            <ChecklistResumo r={checklists[m.placa]} criar={s.perfil !== "vendedor" ? m.placa : null} />
           </section>
 
           {s.perfil !== "preparador" && (

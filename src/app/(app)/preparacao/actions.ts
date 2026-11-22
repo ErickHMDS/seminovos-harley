@@ -125,3 +125,32 @@ export async function marcarEmailEnviado(id: string, enviado: boolean): Promise<
     return erroPlanilha(e);
   }
 }
+
+/**
+ * Moto antiga (já no estoque, sem registro de preparação): cria a preparação já FINALIZADA,
+ * com os dados do estoque preenchidos, para o preparador completar o checklist 360, chave, manual e fotos.
+ */
+export async function criarPreparacaoDoEstoque(placa: string): Promise<SalvarState> {
+  const perfil = await exigirPerfil("/preparacao");
+  if (!podeEditarPreparacao(perfil)) return { erro: "Só gestor e preparador podem criar a preparação." };
+  const m = await motoPorPlaca(placa);
+  if (!m) return { erro: "Moto não encontrada no estoque." };
+  const { getPreparacao } = await import("@/lib/preparacao");
+  const existente = (await getPreparacao()).itens.filter((p) => p.placa.toUpperCase().replace(/[^A-Z0-9]/g, "") === m.placa).pop();
+  if (existente) return { destino: `/preparacao/${encodeURIComponent(existente.id)}`, n: Date.now() };
+  const { fotosDaPlaca } = await import("@/lib/fotos");
+  const fotos = (await fotosDaPlaca(m.placa).catch(() => [])).length;
+  const br = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "");
+  const anunciada = m.anunciada;
+  try {
+    const id = await criar({
+      modelo: m.modelo.toUpperCase(), placa: m.placa, cor: m.cor, ano: m.ano, km: m.km != null ? String(m.km) : "",
+      marca: m.fabricante ?? "", tipo: m.tipo ?? "", loja: rotuloAba(m.aba), dataRecepcao: br(m.dataEntrada), dataFinalizacao: hojeBR(),
+      fotoPreparacao: "SIM", postadoRedes: anunciada ? "SIM" : "", fotosOficiais: fotos ? String(fotos) : "",
+      observacoes: "Preparação registrada depois (moto já estava no estoque).",
+    }, "FINALIZADA");
+    return { destino: `/preparacao/${encodeURIComponent(id)}?salvo=retroativa`, n: Date.now() };
+  } catch (e) {
+    return erroPlanilha(e);
+  }
+}

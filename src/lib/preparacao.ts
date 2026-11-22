@@ -155,7 +155,7 @@ async function garantirCabecalho(): Promise<string[]> {
 
 const seguro = (v: string) => String(valorSeguro(v));
 
-export async function criar(dados: Partial<Record<Campo, string>>): Promise<string> {
+export async function criar(dados: Partial<Record<Campo, string>>, etapa: Etapa = "INSPEÇÃO"): Promise<string> {
   const header = await garantirCabecalho();
   const idx = indices(header);
   const id = `P${Date.now().toString(36).toUpperCase()}`;
@@ -163,7 +163,7 @@ export async function criar(dados: Partial<Record<Campo, string>>): Promise<stri
     dataRecepcao: hojeBR(),
     ...dados,
     id,
-    etapa: "INSPEÇÃO",
+    etapa,
     atualizadoEm: new Date().toLocaleString("pt-BR", { timeZone: TZ }),
   };
   const linha = header.map(() => "");

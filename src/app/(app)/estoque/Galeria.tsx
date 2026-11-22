@@ -92,7 +92,7 @@ export function Galeria({ fotos, placa, editar, modelo, armazenamento, drive = f
         <div className="galeria-acoes">
           {armazenamento ? (
             <label className="btn small">
-              <Icon name="fotos" size={15} /> {enviando || "Enviar fotos"}
+              <Icon name="fotos" size={15} /> {enviando || (drive ? "Enviar fotos para o Drive" : "Enviar fotos")}
               <input type="file" accept="image/*" multiple hidden disabled={!!enviando} onChange={(e) => { enviar(e.target.files); e.target.value = ""; }} />
             </label>
           ) : !drive && <span className="faint" style={{ fontSize: 12 }}>Envio de arquivos: configure o Vercel Blob. Enquanto isso, adicione por link.</span>}

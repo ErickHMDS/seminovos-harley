@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { tokenGoogle } from "./google";
 import { cached, invalidate } from "./cache";
 import { getConfiguracoes, CHAVES } from "./configuracoes";
@@ -212,4 +213,100 @@ export async function conferirPasta(link: string): Promise<{ id: string; nome: s
   if (item.mimeType !== PASTA) throw new Error("Esse link é de um arquivo; cole o link da pasta.");
   const sub = await filhos(id, true);
   return { id, nome: item.name, subpastas: sub.length, editor: item.capabilities?.canAddChildren !== false };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Envio de fotos pelo app para a pasta da moto
+// ---------------------------------------------------------------------------------------------
+const UPLOAD = process.env.DRIVE_UPLOAD_BASE || "https://www.googleapis.com/upload/drive/v3";
+
+class SemEspaco extends Error {}
+
+/** Envia direto com a conta do app (funciona quando a pasta está num Drive compartilhado). */
+async function enviarDireto(pasta: string, nome: string, tipo: string, dados: ArrayBuffer): Promise<string> {
+  const fronteira = `ss${Date.now().toString(36)}`;
+  const meta = JSON.stringify({ name: nome, parents: [pasta] });
+  const corpo = Buffer.concat([
+    Buffer.from(`--${fronteira}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${fronteira}\r\nContent-Type: ${tipo}\r\n\r\n`),
+    Buffer.from(dados),
+    Buffer.from(`\r\n--${fronteira}--`),
+  ]);
+  const res = await fetch(`${UPLOAD}/files?uploadType=multipart&supportsAllDrives=true&fields=id`, {
+    method: "POST", body: corpo, cache: "no-store", signal: AbortSignal.timeout(60_000),
+    headers: { Authorization: `Bearer ${await tokenGoogle()}`, "Content-Type": `multipart/related; boundary=${fronteira}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    if (res.status === 403 && /storage quota|storageQuota/i.test(txt)) throw new SemEspaco(txt);
+    throw new Error(`Google Drive ${res.status}: ${txt.slice(0, 200)}`);
+  }
+  return ((await res.json()) as { id: string }).id;
+}
+
+/** Segredo que a ponte confere (derivado do APP_SECRET; não precisa ser digitado). */
+export function segredoPonte(): string {
+  return createHash("sha256").update(`${process.env.APP_SECRET ?? "servopa"}:ponte-drive`).digest("hex").slice(0, 32);
+}
+
+export async function ponteConfigurada(): Promise<string | null> {
+  const c = await getConfiguracoes().catch(() => ({} as Record<string, string>));
+  const u = clean(c[CHAVES.ponteDrive.nome] ?? "") || process.env.DRIVE_PONTE_URL || "";
+  return /^https?:\/\//.test(u) ? u : null;
+}
+
+/** Chama a ponte (Apps Script na conta do dono da pasta). */
+export async function chamarPonte(url: string, corpo: Record<string, unknown>): Promise<{ id?: string; ok?: boolean; erro?: string }> {
+  const res = await fetch(url, {
+    method: "POST", body: JSON.stringify({ segredo: segredoPonte(), ...corpo }), redirect: "follow", cache: "no-store",
+    headers: { "Content-Type": "text/plain;charset=utf-8" }, signal: AbortSignal.timeout(90_000),
+  });
+  const txt = await res.text();
+  try { return JSON.parse(txt); } catch { throw new Error(`A ponte do Drive não respondeu como esperado (${res.status}). Confira se foi implantada como "App da Web" com acesso "Qualquer pessoa".`); }
+}
+
+/** Grava a foto na pasta da moto (cria a pasta se faltar) e devolve o ID do arquivo no Drive. */
+export async function enviarFotoParaDrive(placa: string, modelo: string, arquivo: File): Promise<string> {
+  const g = await garantirPastaDaPlaca(placa, modelo);
+  if (!g) throw new Error("Pasta de fotos do Drive não configurada (Cadastro → Fotos no Google Drive).");
+  const tipo = arquivo.type || "image/jpeg";
+  const nome = `${so(placa)}-${new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "")}-${Math.random().toString(36).slice(2, 6)}.${tipo.includes("png") ? "png" : "jpg"}`;
+  const dados = await arquivo.arrayBuffer();
+  try {
+    return await enviarDireto(g.pasta.id, nome, tipo, dados);
+  } catch (e) {
+    if (!(e instanceof SemEspaco)) throw e;
+    const ponte = await ponteConfigurada();
+    if (!ponte) throw new Error("O Google não deixa a conta do app guardar arquivos na sua pasta. Configure a ponte do Drive em Cadastro → Fotos no Google Drive (ou use um Drive compartilhado).");
+    const r = await chamarPonte(ponte, { pasta: g.pasta.id, nome, tipo, dados: Buffer.from(dados).toString("base64") });
+    if (!r.id) throw new Error(`Ponte do Drive: ${r.erro ?? "não gravou a foto"}`);
+    return r.id;
+  }
+}
+
+/** Código da ponte (Google Apps Script) que o gestor cola na conta Google dona da pasta. */
+export function codigoPonte(): string {
+  return `// Ponte Servopa Seminovos -> Google Drive
+// Recebe as fotos enviadas pelo app e grava na pasta da moto, usando o espaço desta conta Google.
+const SEGREDO = "${segredoPonte()}";
+
+function doPost(e) {
+  try {
+    const d = JSON.parse(e.postData.contents);
+    if (d.segredo !== SEGREDO) return resposta({ erro: "não autorizado" });
+    if (d.ping) return resposta({ ok: true, conta: Session.getEffectiveUser().getEmail() });
+    const pasta = DriveApp.getFolderById(d.pasta);
+    const arquivo = pasta.createFile(Utilities.newBlob(Utilities.base64Decode(d.dados), d.tipo, d.nome));
+    return resposta({ id: arquivo.getId() });
+  } catch (err) {
+    return resposta({ erro: String(err) });
+  }
+}
+
+function resposta(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Rode esta função uma vez pelo editor para autorizar o acesso ao Drive.
+function autorizar() { DriveApp.getRootFolder(); }
+`;
 }

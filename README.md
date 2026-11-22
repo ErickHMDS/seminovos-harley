@@ -11,7 +11,7 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 |---|---|---|
 | **Painel (Gestor)** | Gestor | Vendas × meta, histórico, idade do estoque, margem, motos paradas, vendas a faturar, preparação e atividades abertas. |
 | **Ranking** | Gestor | Ranking por vendedor (mês/ano, loja). **Lançar, editar e excluir vendas.** |
-| **Preparação** | Gestor e Preparador editam; Vendedor vê | Quadro com 4 etapas. **Checklist 360 (OK/Pendente)**, e-mail pronto para os coordenadores ao concluir a inspeção. |
+| **Preparação** | Gestor e Preparador editam; Vendedor vê | Quadro com 4 etapas e busca. Na etapa de fotos, envio/importação das fotos para a pasta da moto no Drive. Moto antiga do estoque sem preparação: botão **Criar preparação** (já vem com os dados do estoque, na etapa final, para completar o 360 e as fotos). **Checklist 360 (OK/Pendente)**, e-mail pronto para os coordenadores ao concluir a inspeção. |
 | **Estoque** | Todos (custo/margem e edição só Gestor) | Busca e filtros. **Gestor adiciona, edita e remove motos.** |
 | **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
 | **Catálogo** | Gestor | Marcas e modelos (tipo, cilindrada, anos, apelidos) e **segmentos de equivalência** entre marcas. Base do autocompletar e dos leads. |
@@ -48,8 +48,13 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 ## Fotos das motos
 
 - **Google Drive (recomendado):** pasta "Fotos Motos" compartilhada como **Editor** com o e-mail da conta de serviço e informada em **Cadastro → Fotos no Google Drive**. O app **cria sozinho a subpasta de cada moto** (`PLACA - MODELO`) quando ela é recebida na preparação ou cadastrada no estoque; o botão "Criar pastas das motos do estoque" cria as que faltam. O preparador sobe as fotos na pasta (pelo app do Drive no celular) e, na ficha da moto, **Importar do Google Drive** traz as imagens (sem duplicar). O app lê com a conta de serviço e entrega reduzido (`/api/drive/<id>`), sem deixar nada público.
-- **Envio direto:** arquivos no **Vercel Blob** (na Vercel: Storage → Create → Blob → conectar ao projeto; cria `BLOB_READ_WRITE_TOKEN`). As fotos são reduzidas no navegador (máx. 1600 px).
+- **Enviar fotos pelo app** (preparação na etapa de fotos ou ficha da moto): a foto, já reduzida no navegador, vai **direto para a pasta da moto no Drive**. Como o Google não deixa a conta de serviço guardar arquivos numa pasta comum, isso funciona de um destes jeitos: (a) a pasta está num **Drive compartilhado** com a conta do app como Gerente de conteúdo, ou (b) a **ponte do Google Apps Script** (Cadastro → Fotos no Google Drive → Enviar fotos pelo app: código pronto, 5 passos, testado ao salvar), que grava usando o espaço da conta dona da pasta. Sem Drive configurado, o envio usa o Vercel Blob (`BLOB_READ_WRITE_TOKEN`), se existir.
 - Os endereços ficam na aba `Fotos` da planilha do app. Também é possível adicionar foto por link.
+
+## Desempenho
+
+- Os dados das planilhas ficam em cache no servidor: até 60 s servem direto; depois disso (até 10 min) a tela abre na hora com o que já tem e a atualização é buscada em segundo plano. Gravações pelo app e o botão ⟳ Atualizar limpam o cache na hora.
+- Ao abrir qualquer tela, o app já carrega em segundo plano os dados das outras abas, e o navegador pré-carrega as abas do menu (guardadas por 30 s).
 
 ## Configuração
 
