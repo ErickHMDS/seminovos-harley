@@ -195,12 +195,13 @@ function PastaDrive({ pasta, conta }: { pasta: string; conta: string }) {
   );
 }
 
-function PonteDrive({ ponte, codigo }: { ponte: string; codigo: string }) {
+function PonteDrive({ ponte, codigo, compartilhado }: { ponte: string; codigo: string; compartilhado: boolean }) {
   const [state, onSubmit, pending] = useFormAction<CadState & { msg?: string }>(salvarPonteDrive, {});
   const [copiado, setCopiado] = useState(false);
   return (
-    <details className="sec ponte" open={!ponte}>
-      <summary><strong>Enviar fotos pelo app</strong> <span className={`badge ${ponte ? "ok" : "warn"}`}>{ponte ? "ponte ativa" : "falta configurar"}</span></summary>
+    <details className="sec ponte" open={!ponte && !compartilhado}>
+      <summary><strong>Enviar fotos pelo app</strong> <span className={`badge ${ponte || compartilhado ? "ok" : "warn"}`}>{compartilhado ? "pronto · Drive compartilhado" : ponte ? "ponte ativa" : "falta configurar"}</span></summary>
+      {compartilhado && <p className="alert ok" style={{ fontSize: 13 }}>A pasta está num <b>Drive compartilhado</b>: o app grava as fotos direto nela. A ponte abaixo não é necessária.</p>}
       <p className="faint" style={{ fontSize: 13 }}>
         O Google não deixa a conta do app guardar arquivos. Esta “ponte” roda na <b>sua</b> conta Google (a dona da pasta “Fotos Motos”) e grava ali as fotos enviadas pelo app. É feito uma vez só:
       </p>
@@ -225,7 +226,7 @@ function PonteDrive({ ponte, codigo }: { ponte: string; codigo: string }) {
   );
 }
 
-export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", conta = "", ponte = "", codigoPonte = "" }: { pessoas: PessoaVM[]; vendedores: VendedorVM[]; emails: string; url: string; pasta?: string; conta?: string; ponte?: string; codigoPonte?: string }) {
+export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", conta = "", ponte = "", codigoPonte = "", compartilhado = false }: { pessoas: PessoaVM[]; vendedores: VendedorVM[]; emails: string; url: string; pasta?: string; conta?: string; ponte?: string; codigoPonte?: string; compartilhado?: boolean }) {
   const [nova, setNova] = useState<{ preset: Partial<PessoaVM> | null } | null>(null);
   const [filtro, setFiltro] = useState<"" | PessoaVM["perfil"]>("");
   const comAcesso = new Map(pessoas.filter((p) => p.perfil === "vendedor" && p.vendedor).map((p) => [p.vendedor, p]));
@@ -272,7 +273,7 @@ export function CadastroView({ pessoas, vendedores, emails, url, pasta = "", con
       <section style={{ marginTop: 24 }}>
         <Coordenadores emails={emails} />
         <PastaDrive pasta={pasta} conta={conta} />
-        {pasta && <PonteDrive ponte={ponte} codigo={codigoPonte} />}
+        {pasta && <PonteDrive ponte={ponte} codigo={codigoPonte} compartilhado={compartilhado} />}
         <p className="faint" style={{ fontSize: 12, marginTop: 10 }}>
           A senha mestra do administrador fica no servidor (variável SENHA_GESTOR) e sempre funciona — use-a se alguém perder o acesso.
           As senhas da equipe ficam embaralhadas (hash) na aba “Usuários App”; ninguém consegue lê-las na planilha.

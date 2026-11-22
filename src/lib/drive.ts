@@ -310,3 +310,15 @@ function resposta(o) {
 function autorizar() { DriveApp.getRootFolder(); }
 `;
 }
+
+/** Move um arquivo para a lixeira do Drive (recuperável por 30 dias). */
+export async function moverParaLixeira(id: string): Promise<void> {
+  await api(`files/${encodeURIComponent(id)}`, { fields: "id" }, { method: "PATCH", body: JSON.stringify({ trashed: true }) });
+}
+
+/** A pasta de fotos está num Drive compartilhado? (aí a conta do app grava fotos direto, sem ponte) */
+export async function pastaEmDriveCompartilhado(): Promise<boolean> {
+  const raiz = await pastaConfigurada();
+  if (!raiz) return false;
+  return cached(`drive-compartilhado:${raiz}`, async () => !!(await api<{ driveId?: string }>(`files/${raiz}`, { fields: "driveId" })).driveId);
+}

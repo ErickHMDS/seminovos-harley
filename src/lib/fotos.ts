@@ -15,14 +15,14 @@ import type { Sessao } from "./sessao";
  */
 const CABECALHO = ["ID", "Placa", "URL", "Ordem", "Enviado Em", "Enviado Por"];
 
-export type Foto = { id: string; placa: string; url: string; ordem: number; linha: number };
+export type Foto = { id: string; placa: string; url: string; ordem: number; linha: number; enviadoPor: string };
 
 async function load(): Promise<Foto[]> {
   const abas = await listSheets(config.appId);
   if (!abas.some((a) => a.title === config.fotosAba)) return [];
-  const rows = await getValues(config.appId, range(config.fotosAba, "A2:D"));
+  const rows = await getValues(config.appId, range(config.fotosAba, "A2:F"));
   return rows
-    .map((r, i) => ({ id: clean(r[0] ?? ""), placa: clean(r[1] ?? "").toUpperCase(), url: clean(r[2] ?? ""), ordem: Number(r[3]) || 0, linha: i + 2 }))
+    .map((r, i) => ({ id: clean(r[0] ?? ""), placa: clean(r[1] ?? "").toUpperCase(), url: clean(r[2] ?? ""), ordem: Number(r[3]) || 0, linha: i + 2, enviadoPor: clean(r[5] ?? "") }))
     .filter((f) => f.id && f.placa && f.url);
 }
 
@@ -144,6 +144,12 @@ export async function removerFoto(id: string): Promise<void> {
   if (!f) throw new Error("Foto não encontrada.");
   const sheet = (await listSheets(config.appId)).find((a) => a.title === config.fotosAba)!;
   await batchUpdateSheet(config.appId, [reqExcluirLinha(sheet.sheetId, f.linha - 1)]);
+  // foto enviada pelo app vai para a lixeira do Drive (recuperável); importada de uma pasta fica onde está
+  const { idDeUrlDrive, moverParaLixeira } = await import("./drive");
+  const idDrive = idDeUrlDrive(f.url);
+  if (idDrive && !f.enviadoPor.endsWith("(Drive)")) {
+    try { await moverParaLixeira(idDrive); } catch (e) { console.error("Drive: não foi possível mover para a lixeira", e); }
+  }
   if (process.env.BLOB_READ_WRITE_TOKEN && /vercel-storage\.com/.test(f.url)) {
     try { const { del } = await import("@vercel/blob"); await del(f.url); } catch { /* o arquivo pode já ter sido removido */ }
   }
