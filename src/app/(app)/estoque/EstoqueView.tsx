@@ -123,7 +123,7 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
                 </div>
                 <div className="moto-tags">
                   {!m.anunciada && <span className="badge warn">sem anúncio</span>}
-                  {prep && <span className="badge orange">em preparação</span>}
+                  {prep && <span className="badge accent">em preparação</span>}
                   {verCusto && m.realinhamento != null && m.custo != null && <span className={`badge ${m.realinhamento - m.custo < 0 ? "bad" : ""}`}>margem {fmt.brl(m.realinhamento - m.custo)}</span>}
                 </div>
               </div>
@@ -154,7 +154,7 @@ export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicia
                 <tr key={m.id}>
                   <td><span className="plate">{m.placa || "—"}</span></td>
                   <td style={{ minWidth: 180 }}>
-                    <span className="strong">{m.modelo}</span>{prep && <> <span className="badge orange">⚙ {prep.toLowerCase()}</span></>}
+                    <span className="strong">{m.modelo}</span>{prep && <> <span className="badge accent">⚙ {prep.toLowerCase()}</span></>}
                     {m.observacao && <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{m.observacao}</div>}
                   </td>
                   <td className="num">{m.ano}</td>

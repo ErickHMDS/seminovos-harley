@@ -86,7 +86,7 @@ export default async function GestorPage() {
 
       {tarefas.length > 0 && (
         <section className="panel" style={{ marginBottom: 16 }}>
-          <div className="panel-head"><h2>Atividades para resolver</h2><Link href="/atividades" className="hint orange">ver todas →</Link></div>
+          <div className="panel-head"><h2>Atividades para resolver</h2><Link href="/atividades" className="hint accent">ver todas →</Link></div>
           <ul className="simple-list">
             {tarefas.slice(0, 5).map((a) => (
               <li key={a.id}>
@@ -103,7 +103,7 @@ export default async function GestorPage() {
 
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <section className="panel">
-          <div className="panel-head"><h2>Ranking do mês</h2><Link href="/ranking" className="hint orange">ver completo →</Link></div>
+          <div className="panel-head"><h2>Ranking do mês</h2><Link href="/ranking" className="hint accent">ver completo →</Link></div>
           <div className="stack" style={{ gap: 12 }}>
             {rank.slice(0, 7).map((l, i) => (
               <div key={l.vendedor} style={{ display: "grid", gridTemplateColumns: "2ch 1fr auto", gap: 10, alignItems: "center" }}>
@@ -133,14 +133,14 @@ export default async function GestorPage() {
 
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <section className="panel">
-          <div className="panel-head"><h2>Idade do estoque</h2><Link href="/estoque" className="hint orange">abrir estoque →</Link></div>
+          <div className="panel-head"><h2>Idade do estoque</h2><Link href="/estoque" className="hint accent">abrir estoque →</Link></div>
           <Bars data={porFaixa} />
           <div className="kpi-label" style={{ margin: "18px 0 8px" }}>Por loja</div>
           <Bars tone="alt" data={porLoja} />
         </section>
 
         <section className="panel">
-          <div className="panel-head"><h2>Preparação</h2><Link href="/preparacao" className="hint orange">abrir quadro →</Link></div>
+          <div className="panel-head"><h2>Preparação</h2><Link href="/preparacao" className="hint accent">abrir quadro →</Link></div>
           {prep ? (
             <>
               <Bars data={ETAPAS.map((e) => ({ label: e.curto, value: itens.filter((p) => p.etapa === e.id).length, href: "/preparacao" }))} />
@@ -161,7 +161,7 @@ export default async function GestorPage() {
 
       <div className="grid grid-2">
         <section className="panel">
-          <div className="panel-head"><h2>Motos mais paradas</h2><Link href="/estoque" className="hint orange">estoque →</Link></div>
+          <div className="panel-head"><h2>Motos mais paradas</h2><Link href="/estoque" className="hint accent">estoque →</Link></div>
           <ul className="simple-list">
             {motos.slice(0, 8).map((m) => {
               const mg = m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : null;

@@ -1,4 +1,6 @@
-# Seminovos Harley
+# Servopa Seminovos
+
+App interno do **Grupo Servopa Seminovos Motos**.
 
 Aplicativo web (celular e computador) para controle de **vendas, preparação e estoque de seminovos**.
 A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai para a planilha e o que é editado na planilha aparece no app** (em até 60 s, ou na hora pelo botão de atualizar ⟳).

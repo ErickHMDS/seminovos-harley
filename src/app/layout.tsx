@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Oswald } from "next/font/google";
+import { Exo_2, Inter } from "next/font/google";
 import "./globals.css";
 
-const oswald = Oswald({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-oswald" });
+const exo = Exo_2({ subsets: ["latin"], weight: ["600", "700", "800"], style: ["normal", "italic"], variable: "--font-exo" });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Seminovos Harley",
+  title: "Servopa Seminovos",
   description: "Ranking de vendas, preparação, estoque e visão do gestor — dados do Google Sheets.",
 };
 
@@ -14,7 +14,7 @@ export const viewport: Viewport = { themeColor: "#000000", width: "device-width"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${oswald.variable} ${inter.variable}`}>
+    <html lang="pt-BR" className={`${exo.variable} ${inter.variable}`}>
       <body>{children}</body>
     </html>
   );

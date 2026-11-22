@@ -28,7 +28,7 @@ export default async function PreparacaoPage({ searchParams }: { searchParams: P
       const pend = abertasPorRef.get(p.id) ?? 0;
       if (etapa.id === "INSPEÇÃO" && !inspecaoCompleta(p as unknown as Record<string, string>)) tags.push({ txt: "checklist incompleto", tom: "warn" });
       if (etapa.id !== "FINALIZADA" && inspecaoCompleta(p as unknown as Record<string, string>) && !p.emailEnviado) tags.push({ txt: "e-mail pendente", tom: "warn" });
-      if (pend) tags.push({ txt: `${pend} pendência${pend > 1 ? "s" : ""}`, tom: "orange" });
+      if (pend) tags.push({ txt: `${pend} pendência${pend > 1 ? "s" : ""}`, tom: "accent" });
       if (etapa.id === "FORNECEDOR" && p.fornecedor) tags.push({ txt: p.fornecedor, tom: "" });
       if (etapa.id === "FORNECEDOR" && p.prazoEntrega) tags.push({ txt: `${p.atrasada ? "atrasada" : "prazo"} ${p.prazoEntrega.slice(0, 5)}`, tom: p.atrasada ? "bad" : "" });
       if (etapa.id === "FORNECEDOR" && !p.fotoPreparacao) tags.push({ txt: "foto no site", tom: "warn" });
