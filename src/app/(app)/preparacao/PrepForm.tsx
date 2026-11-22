@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CHECKLIST, lerItem, type EstadoItem } from "@/lib/checklist";
 import { salvarPreparacao, type SalvarState } from "./actions";
 
 type Item = Record<string, string> & { etapa: string };
@@ -9,7 +10,7 @@ type Sugestao = { placa: string; modelo: string; cor: string; ano: string; km: s
 const ETAPAS = ["INSPEÇÃO", "FORNECEDOR", "FOTOS", "FINALIZADA"];
 const PROXIMA: Record<string, string> = {
   "INSPEÇÃO": "Enviar ao fornecedor",
-  FORNECEDOR: "Registrar retorno do fornecedor",
+  FORNECEDOR: "Moto voltou do fornecedor",
   FOTOS: "Finalizar preparação",
 };
 
@@ -17,19 +18,6 @@ const PROXIMA: Record<string, string> = {
 function brParaIso(v?: string) {
   const m = (v ?? "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
-}
-
-function SimNao({ name, value, label }: { name: string; value?: string; label: string }) {
-  const v = (value ?? "").toUpperCase();
-  return (
-    <div className="field">
-      <span className="label">{label}</span>
-      <div className="toggle" role="radiogroup" aria-label={label}>
-        <label><input type="radio" name={name} value="SIM" defaultChecked={v === "SIM"} /><span>Sim</span></label>
-        <label><input type="radio" name={name} value="NÃO" defaultChecked={v === "NÃO" || v === "NAO"} /><span>Não</span></label>
-      </div>
-    </div>
-  );
 }
 
 function Check({ name, checked, label }: { name: string; checked: boolean; label: string }) {
@@ -42,195 +30,184 @@ function Check({ name, checked, label }: { name: string; checked: boolean; label
   );
 }
 
-function textoEmail(f: FormData) {
-  const g = (k: string) => String(f.get(k) ?? "").trim() || "—";
-  const sn = (k: string) => (String(f.get(k) ?? "") ? String(f.get(k)) : "não informado");
-  const data = (k: string) => {
-    const v = String(f.get(k) ?? "");
-    const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : v || "—";
-  };
-  return [
-    `Moto enviada para preparação: ${g("modelo")} — placa ${g("placa")}`,
-    "",
-    "DADOS DA MOTO",
-    `• Modelo: ${g("modelo")}`,
-    `• Placa: ${g("placa")}   • Chassi: ${g("chassi")}`,
-    `• Cor: ${g("cor")}   • Ano: ${g("ano")}   • Km: ${g("km")}`,
-    `• Loja: ${g("loja")}`,
-    "",
-    "O QUE VEIO COM A MOTO",
-    `• Manual: ${sn("manual")}`,
-    `• Chave reserva: ${sn("chaveReserva")}`,
-    `• Última revisão: ${g("ultimaRevisao")}`,
-    "",
-    "INSPEÇÃO 360",
-    `• Riscos/arranhões: ${g("riscos")}`,
-    `• Sujeira: ${g("sujeira")}`,
-    `• Detalhes estéticos: ${g("estetica")}`,
-    `• Serviços necessários: ${g("servicos")}`,
-    "",
-    "ENVIO",
-    `• Fornecedor: ${g("fornecedor")}`,
-    `• Data de saída: ${data("dataSaida")}`,
-    `• Prazo de entrega: ${data("prazoEntrega")}`,
-    "",
-    `Observações: ${g("observacoes")}`,
-  ].join("\n");
-}
+type Estado = Record<string, { estado: EstadoItem; obs: string }>;
 
-export function PrepForm({ item, editar, sugestoes, coordenadorEmail, hoje = "" }: { item: Item | null; editar: boolean; sugestoes: Sugestao[]; coordenadorEmail: string; hoje?: string }) {
+export function PrepForm({ item, editar, sugestoes, hoje = "" }: { item: Item | null; editar: boolean; sugestoes: Sugestao[]; hoje?: string }) {
   const [state, action, pending] = useActionState<SalvarState, FormData>(salvarPreparacao, {});
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const acaoRef = useRef<HTMLInputElement>(null);
+  const [erroLocal, setErroLocal] = useState("");
+  const [ck, setCk] = useState<Estado>(() =>
+    Object.fromEntries(CHECKLIST.map((d) => [d.campo, lerItem(d, item?.[d.campo])])),
+  );
+
   useEffect(() => {
     if (!state.destino) return;
     router.replace(state.destino, { scroll: true });
     router.refresh();
   }, [state.destino, state.n, router]);
-  const formRef = useRef<HTMLFormElement>(null);
-  const acaoRef = useRef<HTMLInputElement>(null);
-  const [erroLocal, setErroLocal] = useState("");
+
+  const novo = !item;
+  const etapaIdx = item ? ETAPAS.indexOf(item.etapa) : 0;
+  const v = (k: string) => item?.[k] ?? "";
+  const nPend = Object.values(ck).filter((x) => x.estado === "pendente").length;
+  const nFalta = Object.values(ck).filter((x) => x.estado === "vazio").length;
+
   const definirAcao = (a: string) => (e: React.MouseEvent<HTMLButtonElement>) => {
     setErroLocal("");
-    const forn = (formRef.current?.elements.namedItem("fornecedor") as HTMLInputElement | null)?.value.trim();
+    const f = formRef.current;
+    const forn = (f?.elements.namedItem("fornecedor") as HTMLInputElement | null)?.value.trim();
+    if (novo && nFalta > 0) {
+      e.preventDefault();
+      setErroLocal(`Marque todos os itens do checklist (falta${nFalta > 1 ? "m" : ""} ${nFalta}).`);
+      document.getElementById("checklist")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     if (a === "avancar" && item?.etapa === "INSPEÇÃO" && !forn) {
       e.preventDefault();
       setErroLocal("Informe o fornecedor antes de enviar a moto.");
-      (formRef.current?.elements.namedItem("fornecedor") as HTMLInputElement | null)?.focus();
+      (f?.elements.namedItem("fornecedor") as HTMLInputElement | null)?.focus();
       return;
     }
     if (acaoRef.current) acaoRef.current.value = a;
   };
-  const [copiado, setCopiado] = useState(false);
-  const etapaIdx = item ? ETAPAS.indexOf(item.etapa) : 0;
-  const novo = !item;
 
   function preencherPelaPlaca(placa: string) {
     const s = sugestoes.find((x) => x.placa === placa.toUpperCase().replace(/[^A-Z0-9]/g, ""));
     const f = formRef.current;
     if (!s || !f) return;
-    const set = (n: string, v: string) => {
+    const set = (n: string, val: string) => {
       const el = f.elements.namedItem(n) as HTMLInputElement | HTMLSelectElement | null;
-      if (el && !el.value && v) el.value = v;
+      if (el && !el.value && val) el.value = val;
     };
     set("modelo", s.modelo); set("cor", s.cor); set("ano", s.ano); set("km", s.km); set("loja", s.loja);
   }
 
-  function abrirEmail() {
-    if (!formRef.current) return;
-    const f = new FormData(formRef.current);
-    const assunto = `Preparação · ${String(f.get("modelo") || "")} · ${String(f.get("placa") || "")}`;
-    window.location.href = `mailto:${encodeURIComponent(coordenadorEmail)}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(textoEmail(f))}`;
-  }
-
-  async function copiarTexto() {
-    if (!formRef.current) return;
-    await navigator.clipboard.writeText(textoEmail(new FormData(formRef.current)));
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
-  }
-
-  const v = (k: string) => item?.[k] ?? "";
+  const marcar = (campo: string, estado: EstadoItem) => {
+    setErroLocal("");
+    setCk((prev) => ({ ...prev, [campo]: { ...prev[campo], estado: prev[campo].estado === estado ? "vazio" : estado } }));
+  };
 
   return (
-    <form ref={formRef} action={action} className="panel">
-      <fieldset disabled={!editar || pending} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        {item && <input type="hidden" name="id" value={item.id} />}
-        <input type="hidden" name="acao" ref={acaoRef} />
-
-        <div className="section">
-          <div className="section-title"><span className="n">1</span><h2>Recepção e inspeção 360</h2></div>
+    <form ref={formRef} action={action} className="prep-form">
+      {item && <input type="hidden" name="id" value={item.id} />}
+      <input type="hidden" name="acao" ref={acaoRef} />
+      <fieldset disabled={!editar || pending}>
+        <section className="sec">
+          <h2 className="sec-title">Moto</h2>
           <div className="form-grid">
             <div className="field">
               <label htmlFor="placa">Placa</label>
-              <input id="placa" name="placa" className="input" defaultValue={v("placa")} list="placas-estoque" autoComplete="off"
-                onBlur={(e) => preencherPelaPlaca(e.target.value)} style={{ textTransform: "uppercase" }} />
+              <input id="placa" name="placa" className="input mono" defaultValue={v("placa")} list="placas-estoque" autoComplete="off"
+                onBlur={(e) => preencherPelaPlaca(e.target.value)} style={{ textTransform: "uppercase" }} placeholder="ABC1D23" />
               {sugestoes.length > 0 && <datalist id="placas-estoque">{sugestoes.map((s) => <option key={s.placa} value={s.placa}>{s.modelo}</option>)}</datalist>}
             </div>
-            <div className="field" style={{ gridColumn: "span 2" }}><label htmlFor="modelo">Modelo</label><input id="modelo" name="modelo" className="input" defaultValue={v("modelo")} /></div>
-            <div className="field"><label htmlFor="chassi">Chassi</label><input id="chassi" name="chassi" className="input" defaultValue={v("chassi")} /></div>
+            <div className="field span-2"><label htmlFor="modelo">Modelo</label><input id="modelo" name="modelo" className="input" defaultValue={v("modelo")} /></div>
             <div className="field"><label htmlFor="cor">Cor</label><input id="cor" name="cor" className="input" defaultValue={v("cor")} /></div>
             <div className="field"><label htmlFor="ano">Ano</label><input id="ano" name="ano" className="input" inputMode="numeric" defaultValue={v("ano")} /></div>
-            <div className="field"><label htmlFor="km">Quilometragem</label><input id="km" name="km" className="input" inputMode="numeric" defaultValue={v("km")} /></div>
+            <div className="field"><label htmlFor="km">Km</label><input id="km" name="km" className="input" inputMode="numeric" defaultValue={v("km")} /></div>
             <div className="field">
               <label htmlFor="loja">Loja</label>
               <select id="loja" name="loja" className="input" defaultValue={v("loja")}>
                 <option value="">—</option><option>Curitiba</option><option>Londrina</option>
               </select>
             </div>
-            <div className="field"><label htmlFor="dataRecepcao">Data de recepção</label><input id="dataRecepcao" name="dataRecepcao" type="date" className="input" defaultValue={brParaIso(v("dataRecepcao")) || (novo ? hoje : "")} /></div>
+            <div className="field"><label htmlFor="chassi">Chassi</label><input id="chassi" name="chassi" className="input mono" defaultValue={v("chassi")} /></div>
             <div className="field"><label htmlFor="responsavel">Responsável</label><input id="responsavel" name="responsavel" className="input" defaultValue={v("responsavel")} /></div>
-            <SimNao name="manual" label="Manual" value={v("manual")} />
-            <SimNao name="chaveReserva" label="Chave reserva" value={v("chaveReserva")} />
-            <div className="field"><label htmlFor="ultimaRevisao">Última revisão</label><input id="ultimaRevisao" name="ultimaRevisao" className="input" placeholder="ex.: 10.000 km em 03/2026" defaultValue={v("ultimaRevisao")} /></div>
-            <div className="field wide"><label htmlFor="riscos">Riscos / arranhões</label><textarea id="riscos" name="riscos" className="input" defaultValue={v("riscos")} placeholder="Onde e quais riscos superficiais foram encontrados" /></div>
-            <div className="field"><label htmlFor="sujeira">Sujeira</label><textarea id="sujeira" name="sujeira" className="input" defaultValue={v("sujeira")} /></div>
-            <div className="field" style={{ gridColumn: "span 2" }}><label htmlFor="estetica">Detalhes estéticos</label><textarea id="estetica" name="estetica" className="input" defaultValue={v("estetica")} /></div>
-            <div className="field wide"><label htmlFor="servicos">Serviços necessários</label><textarea id="servicos" name="servicos" className="input" defaultValue={v("servicos")} placeholder="O que o fornecedor deve fazer (polimento, revisão, pneus…)" /></div>
+            <div className="field"><label htmlFor="dataRecepcao">Recebida em</label><input id="dataRecepcao" name="dataRecepcao" type="date" className="input" defaultValue={brParaIso(v("dataRecepcao")) || (novo ? hoje : "")} /></div>
           </div>
-        </div>
+        </section>
+
+        <section className="sec" id="checklist">
+          <div className="sec-head">
+            <h2 className="sec-title">Checklist 360</h2>
+            <span className={`badge ${nPend ? "warn" : nFalta ? "" : "ok"}`}>
+              {nPend ? `${nPend} pendente${nPend > 1 ? "s" : ""}` : nFalta ? `${CHECKLIST.length - nFalta}/${CHECKLIST.length}` : "tudo OK"}
+            </span>
+          </div>
+          <div className="ck-list">
+            {CHECKLIST.map((def) => {
+              const st = ck[def.campo];
+              const sim = def.tipo === "simnao";
+              return (
+                <div key={def.campo} className={`ck ${st.estado}`}>
+                  <input type="hidden" name={`ck_${def.campo}`} value={st.estado === "vazio" ? "" : st.estado} />
+                  <div className="ck-row">
+                    <span className="ck-label">{def.label}</span>
+                    <div className="ck-seg" role="group" aria-label={def.label}>
+                      <button type="button" className="ck-ok" aria-pressed={st.estado === "ok"} onClick={() => marcar(def.campo, "ok")}>{sim ? "Tem" : "OK"}</button>
+                      <button type="button" className="ck-pend" aria-pressed={st.estado === "pendente"} onClick={() => marcar(def.campo, "pendente")}>{sim ? "Falta" : "Pendente"}</button>
+                    </div>
+                  </div>
+                  {st.estado === "pendente" && (
+                    <input className="input ck-obs" name={`ckobs_${def.campo}`} placeholder="O que precisa ser feito?" defaultValue={st.obs}
+                      onChange={(e) => { const obs = e.target.value; setCk((prev) => ({ ...prev, [def.campo]: { ...prev[def.campo], obs } })); }} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="field" style={{ marginTop: 12 }}>
+            <label htmlFor="ultimaRevisao">Última revisão</label>
+            <input id="ultimaRevisao" name="ultimaRevisao" className="input" placeholder="ex.: 10.000 km em 03/2026" defaultValue={v("ultimaRevisao")} />
+          </div>
+          {nPend > 0 && <p className="hint-line">As pendências viram atividades para o gestor resolver.</p>}
+        </section>
+
+        <section className="sec">
+          <h2 className="sec-title">Serviços para o fornecedor</h2>
+          <textarea name="servicos" className="input" defaultValue={v("servicos")} placeholder="Polimento, revisão, troca de pneus…" aria-label="Serviços para o fornecedor" />
+        </section>
 
         {!novo && (
           <>
-            <div className="section">
-              <div className={`section-title ${etapaIdx < 1 ? "locked" : ""}`}><span className="n">2</span><h2>Envio ao fornecedor</h2></div>
+            <section className={`sec ${etapaIdx < 1 ? "sec-future" : ""}`}>
+              <h2 className="sec-title">Fornecedor</h2>
               <div className="form-grid">
-                <div className="field" style={{ gridColumn: "span 2" }}><label htmlFor="fornecedor">Fornecedor</label><input id="fornecedor" name="fornecedor" className="input" defaultValue={v("fornecedor")} /></div>
-                <div className="field"><label htmlFor="dataSaida">Data de saída</label><input id="dataSaida" name="dataSaida" type="date" className="input" defaultValue={brParaIso(v("dataSaida"))} /></div>
-                <div className="field"><label htmlFor="prazoEntrega">Prazo de entrega</label><input id="prazoEntrega" name="prazoEntrega" type="date" className="input" defaultValue={brParaIso(v("prazoEntrega"))} /></div>
+                <div className="field span-2"><label htmlFor="fornecedor">Fornecedor</label><input id="fornecedor" name="fornecedor" className="input" defaultValue={v("fornecedor")} /></div>
+                <div className="field"><label htmlFor="dataSaida">Saída</label><input id="dataSaida" name="dataSaida" type="date" className="input" defaultValue={brParaIso(v("dataSaida"))} /></div>
+                <div className="field"><label htmlFor="prazoEntrega">Prazo</label><input id="prazoEntrega" name="prazoEntrega" type="date" className="input" defaultValue={brParaIso(v("prazoEntrega"))} /></div>
               </div>
-              <div className="panel" style={{ background: "var(--panel-2)", marginTop: 14, padding: 14 }}>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <strong>E-mail ao coordenador</strong>
-                    <div className="muted" style={{ fontSize: 13 }}>Monta o e-mail com tudo o que veio com a moto e para onde ela foi.{!coordenadorEmail && " (configure COORDENADOR_EMAIL para preencher o destinatário)"}</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button type="button" className="btn small" onClick={abrirEmail}>Abrir e-mail</button>
-                    <button type="button" className="btn small ghost" onClick={copiarTexto}>{copiado ? "Copiado ✓" : "Copiar texto"}</button>
-                  </div>
-                </div>
-                <div className="stack" style={{ gap: 10, marginTop: 12 }}>
-                  <Check name="emailEnviado" checked={!!v("emailEnviado")} label={`E-mail enviado ao coordenador${v("emailEnviado") ? ` (em ${v("emailEnviado")})` : ""}`} />
-                  <Check name="fotoPreparacao" checked={!!v("fotoPreparacao")} label="Foto “em preparação” postada no site" />
-                </div>
-              </div>
-            </div>
+              <div style={{ marginTop: 12 }}><Check name="fotoPreparacao" checked={!!v("fotoPreparacao")} label="Foto “em preparação” postada no site" /></div>
+            </section>
 
-            <div className="section">
-              <div className={`section-title ${etapaIdx < 2 ? "locked" : ""}`}><span className="n">3</span><h2>Retorno e fotos oficiais</h2></div>
+            <section className={`sec ${etapaIdx < 2 ? "sec-future" : ""}`}>
+              <h2 className="sec-title">Retorno e fotos oficiais</h2>
               <div className="form-grid">
-                <div className="field"><label htmlFor="dataRetorno">Data de retorno</label><input id="dataRetorno" name="dataRetorno" type="date" className="input" defaultValue={brParaIso(v("dataRetorno"))} /></div>
-                <div className="field"><label htmlFor="fotosOficiais">Fotos oficiais tiradas</label><input id="fotosOficiais" name="fotosOficiais" type="number" min={0} max={50} className="input" defaultValue={v("fotosOficiais")} placeholder="10 a 12" /></div>
-                <div className="field" style={{ justifyContent: "flex-end" }}><Check name="postadoRedes" checked={!!v("postadoRedes")} label="Postada no site e nas redes de venda" /></div>
+                <div className="field"><label htmlFor="dataRetorno">Voltou em</label><input id="dataRetorno" name="dataRetorno" type="date" className="input" defaultValue={brParaIso(v("dataRetorno"))} /></div>
+                <div className="field"><label htmlFor="fotosOficiais">Fotos tiradas</label><input id="fotosOficiais" name="fotosOficiais" type="number" min={0} max={50} className="input" defaultValue={v("fotosOficiais")} placeholder="10 a 12" /></div>
               </div>
-            </div>
+              <div style={{ marginTop: 12 }}><Check name="postadoRedes" checked={!!v("postadoRedes")} label="Postada no site e nas redes de venda" /></div>
+            </section>
           </>
         )}
 
-        <div className="section">
-          <div className="form-grid">
-            <div className="field wide"><label htmlFor="observacoes">Observações</label><textarea id="observacoes" name="observacoes" className="input" defaultValue={v("observacoes")} /></div>
-          </div>
-        </div>
+        <section className="sec">
+          <h2 className="sec-title">Observações</h2>
+          <textarea name="observacoes" className="input" defaultValue={v("observacoes")} aria-label="Observações" />
+        </section>
+      </fieldset>
 
-        {(erroLocal || state.erro) && <div className="alert bad" role="alert" style={{ marginTop: 16 }}>{erroLocal || state.erro}</div>}
+      {(erroLocal || state.erro) && <div className="alert bad" role="alert">{erroLocal || state.erro}</div>}
 
-        {editar && (
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 20, justifyContent: "flex-end" }}>
-            {!novo && etapaIdx > 0 && <button type="submit" onClick={definirAcao("voltar")} className="btn ghost small" style={{ marginRight: "auto" }}>← Voltar etapa</button>}
+      {editar ? (
+        <div className="action-bar">
+          {!novo && etapaIdx > 0 && <button type="submit" onClick={definirAcao("voltar")} className="btn ghost small" disabled={pending}>← Voltar</button>}
+          <div className="action-bar-main">
             {novo ? (
-              <button type="submit" onClick={definirAcao("salvar")} className="btn">{pending ? "Salvando…" : "Registrar moto"}</button>
+              <button type="submit" onClick={definirAcao("salvar")} className="btn" disabled={pending}>{pending ? "Salvando…" : "Concluir inspeção 360"}</button>
             ) : (
               <>
-                <button type="submit" onClick={definirAcao("salvar")} className="btn ghost">{pending ? "Salvando…" : "Salvar"}</button>
-                {PROXIMA[item!.etapa] && <button type="submit" onClick={definirAcao("avancar")} className="btn">Salvar e {PROXIMA[item!.etapa].toLowerCase()} →</button>}
+                <button type="submit" onClick={definirAcao("salvar")} className="btn ghost" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</button>
+                {PROXIMA[item!.etapa] && <button type="submit" onClick={definirAcao("avancar")} className="btn" disabled={pending}>{PROXIMA[item!.etapa]} →</button>}
               </>
             )}
           </div>
-        )}
-        {!editar && <p className="faint" style={{ marginTop: 16, fontSize: 13 }}>Somente leitura para o seu perfil.</p>}
-      </fieldset>
+        </div>
+      ) : (
+        <p className="faint" style={{ fontSize: 13 }}>Somente leitura para o seu perfil.</p>
+      )}
     </form>
   );
 }

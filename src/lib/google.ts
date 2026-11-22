@@ -85,14 +85,32 @@ export async function ensureColumns(spreadsheetId: string, sheet: SheetInfo, cou
   });
 }
 
-/** Lê vários intervalos numa única chamada (valores formatados, como aparecem na planilha). */
-export async function batchGet(spreadsheetId: string, ranges: string[]): Promise<Rows[]> {
+/**
+ * Lê vários intervalos numa única chamada.
+ * FORMATTED_VALUE = como aparece na planilha; FORMULA = devolve a fórmula ("=...") nas células calculadas.
+ */
+export async function batchGet(spreadsheetId: string, ranges: string[], render: "FORMATTED_VALUE" | "FORMULA" = "FORMATTED_VALUE"): Promise<Rows[]> {
   if (ranges.length === 0) return [];
   const qs = ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join("&");
-  const data = await call<{ valueRanges: { values?: Rows }[] }>(
-    `${API}/${spreadsheetId}/values:batchGet?${qs}&valueRenderOption=FORMATTED_VALUE`,
+  const data = await call<{ valueRanges: { values?: (string | number | boolean)[][] }[] }>(
+    `${API}/${spreadsheetId}/values:batchGet?${qs}&valueRenderOption=${render}`,
   );
-  return data.valueRanges.map((v) => v.values ?? []);
+  return data.valueRanges.map((v) => (v.values ?? []).map((r) => r.map((c) => (c == null ? "" : String(c)))));
+}
+
+export async function getFormulas(spreadsheetId: string, a1: string): Promise<Rows> {
+  const [rows] = await batchGet(spreadsheetId, [a1], "FORMULA");
+  return rows;
+}
+
+/** Operações estruturais (inserir/excluir linha, duplicar aba, copiar fórmulas…). */
+export async function batchUpdateSheet<T = unknown>(spreadsheetId: string, requests: object[]): Promise<T> {
+  return call<T>(`${API}/${spreadsheetId}:batchUpdate`, { method: "POST", body: JSON.stringify({ requests }) });
+}
+
+export async function batchClear(spreadsheetId: string, ranges: string[]) {
+  if (ranges.length === 0) return;
+  return call(`${API}/${spreadsheetId}/values:batchClear`, { method: "POST", body: JSON.stringify({ ranges }) });
 }
 
 export async function getValues(spreadsheetId: string, a1: string): Promise<Rows> {

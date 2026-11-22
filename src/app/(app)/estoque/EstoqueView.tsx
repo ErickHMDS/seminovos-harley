@@ -1,5 +1,7 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Icon } from "@/components/Icon";
 import type { Moto } from "@/lib/estoque";
 import { fmt } from "@/lib/parse";
 
@@ -10,25 +12,23 @@ const FAIXAS = [
   { id: "90+", label: "> 90 dias", min: 91, max: Infinity },
 ];
 
-function tomDias(d: number | null) {
-  if (d == null) return "";
-  if (d > 90) return "bad";
-  if (d > 60) return "warn";
-  return "ok";
-}
-
+const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 type Ordem = "dias" | "preco" | "modelo" | "margem";
 
-export function EstoqueView({ motos, verCusto, emPreparacao }: { motos: Moto[]; verCusto: boolean; emPreparacao: Record<string, string> }) {
-  const [busca, setBusca] = useState("");
+export function EstoqueView({ motos, verCusto, editar, emPreparacao, buscaInicial = "" }: {
+  motos: Moto[]; verCusto: boolean; editar: boolean; emPreparacao: Record<string, string>; buscaInicial?: string;
+}) {
+  const [busca, setBusca] = useState(buscaInicial);
   const [cidade, setCidade] = useState("");
   const [marca, setMarca] = useState("");
   const [status, setStatus] = useState("");
   const [faixa, setFaixa] = useState("");
   const [ordem, setOrdem] = useState<Ordem>("dias");
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
   const cidades = useMemo(() => [...new Set(motos.map((m) => m.cidade))].sort(), [motos]);
   const statuses = useMemo(() => [...new Set(motos.map((m) => m.status))].sort(), [motos]);
+  const nFiltros = [cidade, marca, status, faixa].filter(Boolean).length;
 
   const lista = useMemo(() => {
     const q = busca.trim().toUpperCase();
@@ -36,9 +36,7 @@ export function EstoqueView({ motos, verCusto, emPreparacao }: { motos: Moto[]; 
     const out = motos.filter(
       (m) =>
         (!q || m.placa.includes(q) || m.modelo.includes(q) || m.cor.includes(q)) &&
-        (!cidade || m.cidade === cidade) &&
-        (!marca || m.marca === marca) &&
-        (!status || m.status === status) &&
+        (!cidade || m.cidade === cidade) && (!marca || m.marca === marca) && (!status || m.status === status) &&
         (!f || (m.dias != null && m.dias >= f.min && m.dias <= f.max)),
     );
     const margem = (m: Moto) => (m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : -Infinity);
@@ -57,61 +55,95 @@ export function EstoqueView({ motos, verCusto, emPreparacao }: { motos: Moto[]; 
   const custoTotal = lista.reduce((s, m) => s + (m.custo ?? 0), 0);
   const precoTotal = lista.reduce((s, m) => s + (m.realinhamento ?? 0), 0);
   const margemTotal = lista.reduce((s, m) => s + (m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : 0), 0);
+  const editarHref = (m: Moto) => `/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`;
 
   const chip = (ativo: boolean, onClick: () => void, label: string) => (
-    <button type="button" className="chip" aria-pressed={ativo} onClick={onClick}>{label}</button>
+    <button type="button" className="chip" aria-pressed={ativo} onClick={onClick} key={label}>{label}</button>
   );
+  const limpar = () => { setCidade(""); setMarca(""); setStatus(""); setFaixa(""); };
 
   return (
     <>
-      <div className="grid grid-kpi" style={{ marginBottom: 16 }}>
-        <div className="kpi accent"><div className="kpi-label">Motos em estoque</div><div className="kpi-value">{lista.length}</div><div className="kpi-sub">{naoAnunciadas} sem anúncio</div></div>
-        <div className="kpi"><div className="kpi-label">Idade média</div><div className="kpi-value">{idadeMedia}<span style={{ fontSize: "1rem" }}> dias</span></div></div>
-        <div className={`kpi ${acima90 ? "bad" : ""}`}><div className="kpi-label">Paradas há + de 90 dias</div><div className="kpi-value">{acima90}</div><div className="kpi-sub">{fmt.pct(lista.length ? acima90 / lista.length : null)} do estoque</div></div>
+      <div className="grid grid-kpi kpi-strip">
+        <div className="kpi accent"><div className="kpi-label">Motos</div><div className="kpi-value">{lista.length}</div><div className="kpi-sub">{naoAnunciadas} sem anúncio</div></div>
+        <div className="kpi"><div className="kpi-label">Idade média</div><div className="kpi-value">{idadeMedia}<small> dias</small></div></div>
+        <div className={`kpi ${acima90 ? "bad" : ""}`}><div className="kpi-label">+ de 90 dias</div><div className="kpi-value">{acima90}</div><div className="kpi-sub">{fmt.pct(lista.length ? acima90 / lista.length : null)} do estoque</div></div>
         {verCusto ? (
           <>
-            <div className="kpi"><div className="kpi-label">Custo em estoque</div><div className="kpi-value" style={{ fontSize: "1.6rem" }}>{fmt.brl(custoTotal)}</div></div>
-            <div className="kpi"><div className="kpi-label">Margem potencial</div><div className="kpi-value" style={{ fontSize: "1.6rem" }}>{fmt.brl(margemTotal)}</div><div className="kpi-sub">preço de realinhamento − custo</div></div>
+            <div className="kpi"><div className="kpi-label">Custo em estoque</div><div className="kpi-value money">{fmt.brl(custoTotal)}</div></div>
+            <div className="kpi"><div className="kpi-label">Margem potencial</div><div className="kpi-value money">{fmt.brl(margemTotal)}</div></div>
           </>
         ) : (
-          <div className="kpi"><div className="kpi-label">Valor anunciado</div><div className="kpi-value" style={{ fontSize: "1.6rem" }}>{fmt.brl(precoTotal)}</div></div>
+          <div className="kpi"><div className="kpi-label">Valor anunciado</div><div className="kpi-value money">{fmt.brl(precoTotal)}</div></div>
         )}
       </div>
 
-      <div className="toolbar">
-        <input className="input search" placeholder="Buscar placa, modelo ou cor…" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar" />
-        <select className="input" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} aria-label="Ordenar">
-          <option value="dias">Mais tempo em estoque</option>
+      <div className="search-row">
+        <div className="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input className="input" placeholder="Placa, modelo ou cor" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Buscar" />
+          {busca && <button type="button" className="search-clear" onClick={() => setBusca("")} aria-label="Limpar busca">×</button>}
+        </div>
+        <button type="button" className={`btn ghost filter-btn ${nFiltros ? "on" : ""}`} onClick={() => setFiltrosAbertos((v) => !v)} aria-expanded={filtrosAbertos}>
+          <Icon name="filtro" size={16} /> <span>Filtros{nFiltros ? ` · ${nFiltros}` : ""}</span>
+        </button>
+        <select className="input sort-select" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} aria-label="Ordenar">
+          <option value="dias">Mais parados</option>
           <option value="preco">Maior preço</option>
           {verCusto && <option value="margem">Maior margem</option>}
-          <option value="modelo">Modelo (A–Z)</option>
+          <option value="modelo">Modelo A–Z</option>
         </select>
       </div>
-      <div className="toolbar">
-        <div className="chips">
-          {chip(!cidade, () => setCidade(""), "Todas as cidades")}
-          {cidades.map((c) => chip(cidade === c, () => setCidade(cidade === c ? "" : c), c))}
-        </div>
-        <div className="chips">
+
+      <div className={`filter-panel ${filtrosAbertos ? "open" : ""}`}>
+        <div className="filter-group"><span className="filter-label">Cidade</span><div className="chips">{cidades.map((c) => chip(cidade === c, () => setCidade(cidade === c ? "" : c), c))}</div></div>
+        <div className="filter-group"><span className="filter-label">Marca</span><div className="chips">
           {chip(marca === "HARLEY", () => setMarca(marca === "HARLEY" ? "" : "HARLEY"), "Freedom / Harley")}
           {chip(marca === "TRIUMPH", () => setMarca(marca === "TRIUMPH" ? "" : "TRIUMPH"), "Triumph")}
-        </div>
-        <div className="chips">
-          {FAIXAS.map((f) => chip(faixa === f.id, () => setFaixa(faixa === f.id ? "" : f.id), f.label))}
-        </div>
-        <div className="chips">
-          {statuses.map((s) => chip(status === s, () => setStatus(status === s ? "" : s), s.toLowerCase()))}
-        </div>
+        </div></div>
+        <div className="filter-group"><span className="filter-label">Tempo parado</span><div className="chips">{FAIXAS.map((f) => chip(faixa === f.id, () => setFaixa(faixa === f.id ? "" : f.id), f.label))}</div></div>
+        <div className="filter-group"><span className="filter-label">Status</span><div className="chips">{statuses.map((s) => chip(status === s, () => setStatus(status === s ? "" : s), s.toLowerCase()))}</div></div>
+        {nFiltros > 0 && <button type="button" className="link-btn" onClick={limpar}>Limpar filtros</button>}
       </div>
 
-      <div className="table-wrap">
+      {/* celular */}
+      <ul className="moto-list mobile-only">
+        {lista.map((m) => {
+          const prep = emPreparacao[m.placa];
+          const conteudo = (
+            <>
+              <div className={`moto-days ${tomDias(m.dias)}`}><b>{m.dias ?? "—"}</b><small>dias</small></div>
+              <div className="moto-info">
+                <div className="moto-name">{m.modelo}</div>
+                <div className="moto-meta">
+                  <span className="plate">{m.placa || "—"}</span>
+                  <span>{m.ano}</span>
+                  {m.km != null && <span>{fmt.int(m.km)} km</span>}
+                  <span>{m.cidade === "Curitiba" ? "CTBA" : m.cidade === "Londrina" ? "LDA" : m.cidade}</span>
+                </div>
+                <div className="moto-tags">
+                  {!m.anunciada && <span className="badge warn">sem anúncio</span>}
+                  {prep && <span className="badge orange">em preparação</span>}
+                  {verCusto && m.realinhamento != null && m.custo != null && <span className={`badge ${m.realinhamento - m.custo < 0 ? "bad" : ""}`}>margem {fmt.brl(m.realinhamento - m.custo)}</span>}
+                </div>
+              </div>
+              <div className="moto-price">{m.realinhamento != null ? fmt.brl(m.realinhamento) : <span className="faint">sem preço</span>}</div>
+            </>
+          );
+          return <li key={m.id}>{editar ? <Link href={editarHref(m)} className="moto-card">{conteudo}</Link> : <div className="moto-card">{conteudo}</div>}</li>;
+        })}
+        {lista.length === 0 && <li className="empty">Nenhuma moto com esses filtros.</li>}
+      </ul>
+
+      {/* computador */}
+      <div className="table-wrap desktop-only">
         <table>
           <thead>
             <tr>
-              <th>Placa</th><th>Modelo</th><th>Ano</th><th className="r hide-sm">Km</th><th className="hide-sm">Cor</th><th>Loja</th>
-              <th className="hide-sm">Entrada</th><th className="r">Dias</th><th className="r">Preço</th><th className="r">FIPE</th>
+              <th>Placa</th><th>Modelo</th><th>Ano</th><th className="r">Km</th><th>Cor</th><th>Loja</th>
+              <th>Entrada</th><th className="r">Dias</th><th className="r">Preço</th><th className="r">FIPE</th>
               {verCusto && <><th className="r">Custo</th><th className="r">Margem</th></>}
-              <th>Status</th>
+              <th>Status</th>{editar && <th />}
             </tr>
           </thead>
           <tbody>
@@ -122,14 +154,14 @@ export function EstoqueView({ motos, verCusto, emPreparacao }: { motos: Moto[]; 
                 <tr key={m.id}>
                   <td><span className="plate">{m.placa || "—"}</span></td>
                   <td style={{ minWidth: 180 }}>
-                    <span className="strong">{m.modelo}</span>{prep && <> <span className="badge orange" title="Em preparação">⚙ {prep.toLowerCase()}</span></>}
+                    <span className="strong">{m.modelo}</span>{prep && <> <span className="badge orange">⚙ {prep.toLowerCase()}</span></>}
                     {m.observacao && <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{m.observacao}</div>}
                   </td>
                   <td className="num">{m.ano}</td>
-                  <td className="r hide-sm">{fmt.int(m.km)}</td>
-                  <td className="muted hide-sm">{m.cor}</td>
+                  <td className="r">{fmt.int(m.km)}</td>
+                  <td className="muted">{m.cor}</td>
                   <td className="muted" style={{ whiteSpace: "nowrap" }}>{m.marca === "TRIUMPH" ? "Triumph" : "Freedom"} · {m.cidade}</td>
-                  <td className="num muted hide-sm">{fmt.date(m.dataEntrada ? new Date(m.dataEntrada) : null)}</td>
+                  <td className="num muted">{fmt.date(m.dataEntrada ? new Date(m.dataEntrada) : null)}</td>
                   <td className="r"><span className={`badge ${tomDias(m.dias)}`}>{m.dias ?? "—"}</span></td>
                   <td className="r strong">{fmt.brl(m.realinhamento)}</td>
                   <td className="r muted">{fmt.brl(m.fipe)}</td>
@@ -143,10 +175,11 @@ export function EstoqueView({ motos, verCusto, emPreparacao }: { motos: Moto[]; 
                     </>
                   )}
                   <td><span className={`badge ${m.anunciada ? "ok" : "warn"}`}>{m.status.toLowerCase()}</span></td>
-                                  </tr>
+                  {editar && <td className="r"><Link href={editarHref(m)} className="link-more">Editar</Link></td>}
+                </tr>
               );
             })}
-            {lista.length === 0 && <tr><td colSpan={13} className="empty">Nenhuma moto com esses filtros.</td></tr>}
+            {lista.length === 0 && <tr><td colSpan={14} className="empty">Nenhuma moto com esses filtros.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -3,12 +3,13 @@ import { addSheet, appendValues, batchUpdateValues, ensureColumns, getValues, li
 import { cached, invalidate } from "./cache";
 import { config } from "./config";
 import { TZ, clean, date, daysBetween, hoje as hojeSP } from "./parse";
+import { colLetra, valorSeguro } from "./planilha";
 
 export const ETAPAS = [
   { id: "INSPEÇÃO", label: "Recepção e inspeção 360", curto: "Inspeção" },
   { id: "FORNECEDOR", label: "No fornecedor", curto: "Fornecedor" },
   { id: "FOTOS", label: "Retornou · fotos oficiais", curto: "Fotos" },
-  { id: "FINALIZADA", label: "Finalizada · pronta para venda", curto: "Finalizada" },
+  { id: "FINALIZADA", label: "Finalizada · pronta para venda", curto: "Prontas" },
 ] as const;
 export type Etapa = (typeof ETAPAS)[number]["id"];
 
@@ -39,6 +40,11 @@ export const COLUNAS = {
   manual: "Manual",
   chaveReserva: "Chave Reserva",
   ultimaRevisao: "Última Revisão",
+  documentacao: "Documentação",
+  revisaoEmDia: "Revisões em Dia",
+  pneus: "Pneus",
+  freios: "Freios",
+  eletrica: "Elétrica/Bateria",
   emailEnviado: "E-mail Coordenador",
   fotoPreparacao: "Foto Em Preparação Postada",
   dataRetorno: "Data Retorno",
@@ -134,16 +140,7 @@ async function garantirCabecalho(): Promise<string[]> {
   return atual;
 }
 
-/** Evita que um texto digitado vire fórmula na planilha. */
-function seguro(v: string): string {
-  return /^[=+\-@]/.test(v) ? `'${v}` : v;
-}
-
-function colLetra(n: number): string {
-  let s = "";
-  for (n += 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
-  return s;
-}
+const seguro = (v: string) => String(valorSeguro(v));
 
 export async function criar(dados: Partial<Record<Campo, string>>): Promise<string> {
   const header = await garantirCabecalho();

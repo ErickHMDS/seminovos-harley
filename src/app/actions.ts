@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { COOKIE, PERFIS, algumaSenhaConfigurada, criarToken, perfilPelaSenha } from "@/lib/auth";
 import { opcoesCookie } from "@/lib/cookie";
+import { invalidate } from "@/lib/cache";
+import { perfilAtual } from "@/lib/sessao";
 
 export type LoginState = { erro?: string };
 
@@ -23,4 +25,10 @@ export async function sair() {
   // apaga com os mesmos atributos usados na criação (cookie particionado só some assim)
   (await cookies()).set(COOKIE, "", await opcoesCookie(0));
   redirect("/login");
+}
+
+/** Esquece os dados em cache para reler a planilha na próxima renderização. */
+export async function atualizarDados() {
+  if (!(await perfilAtual())) return;
+  invalidate("");
 }

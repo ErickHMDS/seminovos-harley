@@ -1,4 +1,7 @@
-import { Atualizado } from "@/components/ui";
+import Link from "next/link";
+import { AtualizarDados } from "@/components/AtualizarDados";
+import { Fab } from "@/components/Fab";
+import { Icon } from "@/components/Icon";
 import { podeVerCusto } from "@/lib/auth";
 import { getEstoque, semCusto } from "@/lib/estoque";
 import { getPreparacao } from "@/lib/preparacao";
@@ -7,10 +10,14 @@ import { EstoqueView } from "./EstoqueView";
 
 export const dynamic = "force-dynamic";
 
-export default async function EstoquePage() {
+const SALVO: Record<string, string> = { nova: "Moto adicionada ao estoque.", editada: "Moto atualizada.", removida: "Moto removida do estoque." };
+
+export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ salvo?: string; q?: string }> }) {
   const perfil = await exigirPerfil("/estoque");
+  const sp = await searchParams;
   const [{ motos, atualizadoEm }, prep] = await Promise.all([getEstoque(), getPreparacao().catch(() => null)]);
   const verCusto = podeVerCusto(perfil);
+  const editar = perfil === "gestor";
   const emPreparacao = Object.fromEntries(
     (prep?.itens ?? []).filter((p) => p.etapa !== "FINALIZADA" && p.placa).map((p) => [p.placa.toUpperCase(), p.etapa]),
   );
@@ -18,13 +25,17 @@ export default async function EstoquePage() {
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Estoque de seminovos</div>
+          <div className="eyebrow">Seminovos</div>
           <h1>Estoque</h1>
-          <p>Motos das abas {"“Estoque CTBA”"} e {"“Estoque LOND”"}. Dias em estoque calculados a partir da data de entrada.</p>
         </div>
-        <Atualizado em={atualizadoEm} />
+        <div className="head-actions">
+          <AtualizarDados em={atualizadoEm} />
+          {editar && <Link href="/estoque/moto" className="btn desktop-only"><Icon name="plus" size={16} /> Nova moto</Link>}
+        </div>
       </div>
-      <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} emPreparacao={emPreparacao} />
+      {sp.salvo && SALVO[sp.salvo] && <div className="alert ok toast" role="status">{SALVO[sp.salvo]}</div>}
+      <EstoqueView motos={verCusto ? motos : motos.map(semCusto)} verCusto={verCusto} editar={editar} emPreparacao={emPreparacao} buscaInicial={sp.salvo && sp.salvo !== "removida" ? sp.q ?? "" : ""} />
+      {editar && <Fab href="/estoque/moto" label="Nova moto" />}
     </>
   );
 }

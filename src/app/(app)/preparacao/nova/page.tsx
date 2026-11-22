@@ -17,13 +17,12 @@ export default async function NovaPage() {
     <>
       <div className="page-head">
         <div>
-          <Link href="/preparacao" className="muted" style={{ fontSize: 13 }}>← Preparação</Link>
-          <div className="eyebrow" style={{ marginTop: 8 }}>Etapa 1</div>
+          <Link href="/preparacao" className="back-link">← Preparação</Link>
           <h1>Receber moto</h1>
-          <p>Registre a chegada e a inspeção 360. Se a placa já estiver no estoque, os dados são preenchidos automaticamente.</p>
+          <p>Inspeção 360. Digite a placa: se ela estiver no estoque, os dados vêm sozinhos.</p>
         </div>
       </div>
-      <PrepForm item={null} editar sugestoes={sugestoes} coordenadorEmail="" hoje={hojeISO()} />
+      <PrepForm item={null} editar sugestoes={sugestoes} hoje={hojeISO()} />
     </>
   );
 }

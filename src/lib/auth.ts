@@ -18,6 +18,9 @@ export const ACESSO: Record<string, Perfil[]> = {
   "/preparacao": ["gestor", "vendedor", "preparador"],
   "/preparacao/nova": ["gestor", "preparador"],
   "/leads": ["gestor", "vendedor"],
+  "/atividades": ["gestor"],
+  "/vendas": ["gestor", "vendedor"],
+  "/estoque/moto": ["gestor"],
 };
 
 export function podeAcessar(perfil: Perfil, path: string): boolean {

@@ -1,12 +1,14 @@
 import "server-only";
-import { batchGet, range } from "./google";
-import { cached } from "./cache";
+import { batchGet, batchUpdateValues, getFormulas, listSheets, range } from "./google";
+import { cached, invalidate } from "./cache";
+import { batchUpdateSheet, colLetra, colunasComFormula, indiceCabecalho, reqCopiarFormulas, reqExcluirLinha, reqInserirLinha, valorSeguro } from "./planilha";
 import { config } from "./config";
 import { clean, date, daysBetween, hoje as hojeSP, num } from "./parse";
 
 export type Moto = {
   id: string;
   aba: string;
+  linha: number; // linha na planilha (1-based)
   empresa: string;
   marca: "HARLEY" | "TRIUMPH" | "OUTRA";
   cidade: string;
@@ -70,6 +72,7 @@ async function load(): Promise<{ motos: Moto[]; atualizadoEm: string }> {
       motos.push({
         id: `${aba}#${i + 2}`,
         aba,
+        linha: i + 2,
         empresa,
         marca: marca(empresa),
         cidade: cidade(empresa, aba),
@@ -115,4 +118,93 @@ export function faixa(dias: number | null) {
 /** Remove dados financeiros sensíveis para perfis que não são gestor. */
 export function semCusto(m: Moto): Moto {
   return { ...m, custo: null, ultimoValorVenda: null };
+}
+
+// ---------------------------------------------------------------------------
+// Escrita (gestor)
+// ---------------------------------------------------------------------------
+
+export type MotoInput = {
+  empresa: string; placa: string; modelo: string; km: string; ano: string; cor: string; dataEntrada: string;
+  custo: string; ultimoValorVenda: string; fipe: string; realinhamento: string; status: string; observacao: string;
+};
+
+const CAMPOS: [keyof MotoInput, string, "texto" | "numero" | "data"][] = [
+  ["empresa", "Empresa", "texto"], ["placa", "Placa", "texto"], ["modelo", "Modelo", "texto"], ["km", "Km", "numero"],
+  ["ano", "Ano Modelo", "texto"], ["cor", "Cor", "texto"], ["dataEntrada", "Data Entrada", "data"],
+  ["custo", "Custo Presente", "numero"], ["ultimoValorVenda", "Último Valor Venda", "numero"], ["fipe", "Fipe", "numero"],
+  ["realinhamento", "Realinhamento", "numero"], ["status", "Status", "texto"], ["observacao", "Observação", "texto"],
+];
+
+function celula(tipo: "texto" | "numero" | "data", v: string): string | number {
+  const t = clean(v);
+  if (!t) return "";
+  if (tipo === "numero") return num(t) ?? valorSeguro(t);
+  if (tipo === "texto") return valorSeguro(t.toUpperCase());
+  return t;
+}
+
+const comparavel = (tipo: "texto" | "numero" | "data", v: string) => (tipo === "numero" ? String(num(v) ?? "") : clean(v).toUpperCase());
+
+/** Cria (linha = null) ou atualiza uma moto. Nunca grava nas colunas de fórmula (ex.: Dias Estoque). */
+export async function salvarMoto(aba: string, linha: number | null, placaOriginal: string | null, m: MotoInput): Promise<number> {
+  if (!config.estoqueAbas.includes(aba)) throw new Error("Loja inválida.");
+  const rows = (await batchGet(config.estoqueId, [range(aba, "A1:N")]))[0];
+  const col = indiceCabecalho(rows[0] ?? []);
+  const formulas = await colunasComFormula(config.estoqueId, aba, 2, Math.max(2, rows.length));
+  const sheet = (await listSheets(config.estoqueId)).find((a) => a.title === aba)!;
+
+  let alvo: number; // 1-based
+  const novo = linha == null;
+  if (novo) {
+    const livre = rows.findIndex((r, i) => i > 0 && !clean(r[col("Placa")] ?? "") && !clean(r[col("Modelo")] ?? ""));
+    if (livre > 0) alvo = livre + 1;
+    else {
+      // aba cheia: insere uma linha no fim (herda a formatação)
+      alvo = rows.length + 1;
+      if (alvo > sheet.rowCount) await batchUpdateSheet(config.estoqueId, [reqInserirLinha(sheet.sheetId, sheet.rowCount)]);
+    }
+    // copia as fórmulas (ex.: =TODAY()-G) da última linha preenchida
+    const fonte = [...rows.keys()].reverse().find((i) => i > 0 && i < alvo - 1 && clean(rows[i][col("Placa")] ?? ""));
+    const alvoF = (await getFormulas(config.estoqueId, range(aba, `A${alvo}:AZ${alvo}`)))[0] ?? [];
+    const faltando = [...formulas].filter((c) => !(alvoF[c] ?? "").startsWith("="));
+    if (fonte != null && faltando.length) await batchUpdateSheet(config.estoqueId, reqCopiarFormulas(sheet.sheetId, fonte, alvo - 1, faltando));
+  } else {
+    alvo = linha;
+    const atual = clean(rows[alvo - 1]?.[col("Placa")] ?? "").toUpperCase();
+    if (atual !== clean(placaOriginal ?? "").toUpperCase()) throw new Error("Esta moto foi alterada ou movida na planilha. Atualize a página e tente de novo.");
+  }
+
+  const r = novo ? [] : rows[alvo - 1] ?? [];
+  const data = CAMPOS.map(([k, nome, tipo]) => ({ c: col(nome), tipo, v: m[k] ?? "" }))
+    .filter(({ c, tipo, v }) => c >= 0 && !formulas.has(c) && (novo ? clean(v) !== "" : comparavel(tipo, r[c] ?? "") !== comparavel(tipo, v)))
+    .map(({ c, tipo, v }) => ({ range: range(aba, `${colLetra(c)}${alvo}`), values: [[celula(tipo, v)]] }));
+  await batchUpdateValues(config.estoqueId, data);
+  invalidate("estoque");
+  return alvo;
+}
+
+/** Remove a linha da moto (ex.: vendida). Confere a placa antes para não apagar a linha errada. */
+export async function removerMoto(aba: string, linha: number, placa: string) {
+  const rows = (await batchGet(config.estoqueId, [range(aba, "A1:N")]))[0];
+  const col = indiceCabecalho(rows[0] ?? []);
+  if (clean(rows[linha - 1]?.[col("Placa")] ?? "").toUpperCase() !== clean(placa).toUpperCase()) {
+    throw new Error("Esta moto foi alterada ou movida na planilha. Atualize a página e tente de novo.");
+  }
+  const sheet = (await listSheets(config.estoqueId)).find((a) => a.title === aba)!;
+  await batchUpdateSheet(config.estoqueId, [reqExcluirLinha(sheet.sheetId, linha - 1)]);
+  invalidate("estoque");
+}
+
+export async function getMoto(aba: string, linha: number) {
+  const { motos } = await getEstoque();
+  return motos.find((m) => m.aba === aba && m.linha === linha) ?? null;
+}
+
+export async function empresasPorAba(): Promise<Record<string, string[]>> {
+  const { motos } = await getEstoque();
+  const out: Record<string, string[]> = Object.fromEntries(config.estoqueAbas.map((a) => [a, []]));
+  for (const m of motos) if (m.empresa && !out[m.aba]?.includes(m.empresa)) out[m.aba]?.push(m.empresa);
+  for (const k of Object.keys(out)) out[k].sort();
+  return out;
 }

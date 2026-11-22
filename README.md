@@ -1,48 +1,42 @@
 # Seminovos Harley
 
-Aplicativo web (funciona no celular e no computador) para controle de **vendas, preparação e estoque de seminovos**, usando as planilhas do Google Sheets como base de dados.
+Aplicativo web (celular e computador) para controle de **vendas, preparação e estoque de seminovos**.
+A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai para a planilha e o que é editado na planilha aparece no app** (em até 60 s, ou na hora pelo botão de atualizar ⟳).
 
 ## Áreas
 
 | Área | Quem acessa | O que faz |
 |---|---|---|
-| **Gestor** | Gestor | Visão geral: vendas do mês × meta, histórico de 12 meses, idade do estoque, margem potencial, motos mais paradas, vendas em andamento e pendências da preparação. |
-| **Ranking** | Gestor, Vendedor | Ranking por vendedor (mês ou ano), meta da aba PAINEL GERAL, faturadas/em andamento, FIN, G.E, usado, seguro, filtro por loja. |
-| **Preparação** | Gestor e Preparador editam; Vendedor só vê | Quadro com 4 etapas: recepção e inspeção 360 → fornecedor → retorno e fotos oficiais → finalizada. Gera o e-mail para o coordenador. |
-| **Estoque** | Todos (custo e margem só para o Gestor) | Estoque de Curitiba e Londrina com busca e filtros por cidade, marca, status e tempo parado. |
+| **Painel (Gestor)** | Gestor | Vendas × meta, histórico, idade do estoque, margem, motos paradas, vendas a faturar, preparação e atividades abertas. |
+| **Ranking** | Gestor, Vendedor | Ranking por vendedor (mês/ano, loja). **Lançar, editar e excluir vendas.** |
+| **Preparação** | Gestor e Preparador editam; Vendedor vê | Quadro com 4 etapas. **Checklist 360 (OK/Pendente)**, e-mail pronto para os coordenadores ao concluir a inspeção. |
+| **Estoque** | Todos (custo/margem e edição só Gestor) | Busca e filtros. **Gestor adiciona, edita e remove motos.** |
+| **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
 | **Leads** | — | Em breve. |
 
-## Planilhas usadas
+## Como o app grava nas planilhas
 
-- **MOTOS 2026** (`SHEET_VENDAS_ID`): uma aba por mês. O app descobre o mês de cada aba **pelas datas lançadas**, não pelo nome. Se duas abas caem no mesmo mês, usa a que tem mais vendas. As metas vêm da aba `PAINEL GERAL` (colunas OBJETIVO/VENDEDOR).
-- **Estoque Motos / Realinhamento** (`SHEET_ESTOQUE_ID`): abas `Estoque CTBA` e `Estoque LOND` (somente leitura) e `Motos em Preparação` (o app grava aqui).
-
-### O que o app grava
-
-O app **só grava** na aba `Motos em Preparação`. Na primeira moto registrada, ele acrescenta colunas à direita das 9 colunas que já existem (ID App, Etapa, Loja, Ano, Km, Data Recepção, Responsável, Riscos/Arranhões, Sujeira, Detalhes Estéticos, Manual, Chave Reserva, Última Revisão, E-mail Coordenador, Foto Em Preparação Postada, Data Retorno, Qtd Fotos Oficiais, Postado nas Redes, Data Finalização, Atualizado Em).
-
-Ao editar, ele altera apenas as células que mudaram. Motos lançadas direto na planilha também aparecem no quadro, com a etapa deduzida pelo que está preenchido.
+- **Vendas (MOTOS 2026):** cada venda vai para a **primeira linha livre da aba do mês**, preenchendo só as colunas de digitação (Data … Observações). As fórmulas das colunas O–S (usadas pelo PAINEL GERAL) **não são tocadas**. Se o mês ainda não tem aba (ex.: dezembro), o app **duplica a aba do mês anterior** (com fórmulas e formatação) e limpa os lançamentos.
+  - Contam como venda, igual ao PAINEL GERAL: **FATURADO, ESTOQUE (vendida, aguardando faturar) e TRANSFERENCIA**. "CANCELADA" fica registrada mas não conta.
+  - O PAINEL GERAL aponta para a aba do mês nas fórmulas; ao virar o mês, atualize as referências dele como já fazia.
+- **Estoque:** edição altera só as células modificadas; a coluna **Dias Estoque (`=TODAY()-G`) nunca é sobrescrita**. Moto nova recebe a fórmula copiada da linha de cima (se a aba estiver cheia, o app insere uma linha). "Remover do estoque" apaga a linha após confirmação.
+- **Motos em Preparação:** mantém as 9 colunas originais e acrescenta à direita as colunas do app (etapa, checklist 360, datas, fotos…).
+- **Atividades:** aba criada pelo app na planilha de estoque.
+- Antes de editar/excluir, o app confere se a linha ainda é a mesma (placa/vendedor/veículo); se alguém mexeu na planilha no meio do caminho, ele avisa em vez de gravar no lugar errado.
 
 ## Configuração
 
-1. Crie uma conta de serviço no Google Cloud, ative a **Google Sheets API** e baixe a chave JSON.
-2. Compartilhe as duas planilhas com o e-mail da conta de serviço como **Editor**.
-3. Copie `.env.example` para `.env.local` e preencha:
-   - `GOOGLE_SERVICE_ACCOUNT_JSON`: conteúdo do JSON (ou `GOOGLE_SERVICE_ACCOUNT_FILE` com o caminho do arquivo).
-   - `APP_SECRET`: texto aleatório longo (`openssl rand -hex 32`).
-   - `SENHA_GESTOR`, `SENHA_VENDEDOR`, `SENHA_PREPARADOR`: senhas de cada perfil.
-   - `COORDENADOR_EMAIL`: destinatário do e-mail de envio ao fornecedor.
+1. Conta de serviço do Google com a **Google Sheets API** ativa; compartilhe as duas planilhas com o e-mail dela como **Editor**.
+2. Variáveis (veja `.env.example`): `GOOGLE_SERVICE_ACCOUNT_JSON`, `SHEET_VENDAS_ID`, `SHEET_ESTOQUE_ID`, `ESTOQUE_ABAS`, `PREPARACAO_ABA`, `APP_SECRET`, `SENHA_GESTOR`, `SENHA_VENDEDOR`, `SENHA_PREPARADOR`, `COORDENADOR_EMAIL` (vários separados por vírgula).
 
-> Nunca versione o JSON da conta de serviço nem o `.env.local` (já estão no `.gitignore`).
+> Nunca versione o JSON da conta de serviço nem o `.env.local`.
 
 ## Rodando
 
 ```bash
 npm install
-npm run dev        # desenvolvimento em http://localhost:3000
+npm run dev                  # http://localhost:3000
 npm run build && npm start   # produção
 ```
 
-## Publicação
-
-Funciona em qualquer hospedagem Node (por exemplo, Vercel). Configure as mesmas variáveis de ambiente no painel da hospedagem. Os dados lidos ficam em cache por 60 segundos (`CACHE_SEGUNDOS`) para respeitar a cota da API do Google.
+Publicado na Vercel a partir da branch `main` (o `vercel.json` fixa o framework Next.js).

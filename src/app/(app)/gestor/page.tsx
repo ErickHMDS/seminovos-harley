@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Atualizado, Bars, Columns, Kpi, Progress } from "@/components/ui";
+import { AtualizarDados } from "@/components/AtualizarDados";
+import { Bars, Columns, Kpi, Progress } from "@/components/ui";
+import { getAtividades } from "@/lib/atividades";
 import { FAIXAS, faixa, getEstoque } from "@/lib/estoque";
 import { fmt, monthLabel } from "@/lib/parse";
 import { ETAPAS, getPreparacao } from "@/lib/preparacao";
@@ -10,14 +12,15 @@ export const dynamic = "force-dynamic";
 
 export default async function GestorPage() {
   await exigirPerfil("/gestor");
-  const [base, { motos }, prep] = await Promise.all([getVendas(), getEstoque(), getPreparacao().catch(() => null)]);
+  const [base, { motos }, prep, atividades] = await Promise.all([getVendas(), getEstoque(), getPreparacao().catch(() => null), getAtividades().catch(() => [])]);
+  const tarefas = atividades.filter((a) => a.aberta);
 
   const mes = base.meses[0];
   const doMes = base.vendas.filter((v) => v.mes === mes);
   const r = resumo(doMes);
   const rank = ranking(doMes, base.objetivos, true);
   const metaTotal = Object.values(base.objetivos).reduce((a, b) => a + b, 0) || null;
-  const emAndamento = doMes.filter((v) => !v.faturada);
+  const emAndamento = doMes.filter((v) => v.conta && !v.faturada);
 
   // histórico: 12 meses corridos até o mês atual (mês sem aba aparece como 0)
   const historico = mes
@@ -66,12 +69,11 @@ export default async function GestorPage() {
         <div>
           <div className="eyebrow">Visão do gestor</div>
           <h1>{mes ? monthLabel(mes) : "Painel"}</h1>
-          <p>Vendas, estoque e preparação em uma tela.</p>
         </div>
-        <Atualizado em={base.atualizadoEm} />
+        <AtualizarDados em={base.atualizadoEm} />
       </div>
 
-      <div className="grid grid-kpi" style={{ marginBottom: 16 }}>
+      <div className="grid grid-kpi kpi-strip">
         <Kpi label="Vendas no mês" value={r.total} tone="accent"
           sub={<>{metaTotal ? `${fmt.pct(r.total / metaTotal)} da meta (${metaTotal})` : ""}{vendasMesAnterior != null ? ` · mês anterior: ${vendasMesAnterior}` : ""}</>} />
         <Kpi label="Faturadas" value={r.faturadas} sub={`${emAndamento.length} em andamento`} />
@@ -79,7 +81,25 @@ export default async function GestorPage() {
         <Kpi label="+ de 90 dias" value={acima90.length} tone={acima90.length ? "bad" : undefined} sub={`${fmt.pct(motos.length ? acima90.length / motos.length : null)} do estoque`} />
         <Kpi label="Custo em estoque" value={<span style={{ fontSize: "1.5rem" }}>{fmt.brl(custo)}</span>} sub={`margem potencial ${fmt.brl(margem)}`} />
         <Kpi label="Em preparação" value={ativos.length} tone={atrasadas.length ? "warn" : undefined} sub={atrasadas.length ? `${atrasadas.length} atrasada(s) no fornecedor` : "nenhuma atrasada"} />
+        <Link href="/atividades" className="kpi-link"><Kpi label="Atividades" value={tarefas.length} tone={tarefas.length ? "warn" : undefined} sub={tarefas.length ? "abertas · resolver →" : "nada pendente"} /></Link>
       </div>
+
+      {tarefas.length > 0 && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-head"><h2>Atividades para resolver</h2><Link href="/atividades" className="hint orange">ver todas →</Link></div>
+          <ul className="simple-list">
+            {tarefas.slice(0, 5).map((a) => (
+              <li key={a.id}>
+                <Link href="/atividades" className="simple-row">
+                  {a.placa ? <span className="plate">{a.placa}</span> : <span className="badge">avulsa</span>}
+                  <span className="simple-main">{a.descricao}</span>
+                  <span className="faint simple-side">{a.criadaEm.split(",")[0].slice(0, 5)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <section className="panel">
@@ -140,46 +160,39 @@ export default async function GestorPage() {
       </div>
 
       <div className="grid grid-2">
-        <section>
-          <div className="panel-head"><h2>Motos mais paradas</h2><span className="hint">priorizar ações de venda</span></div>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Placa</th><th>Modelo</th><th className="r">Dias</th><th className="r">Preço</th><th className="r">Margem</th></tr></thead>
-              <tbody>
-                {motos.slice(0, 8).map((m) => (
-                  <tr key={m.id}>
-                    <td><span className="plate">{m.placa}</span></td>
-                    <td>{m.modelo}<div className="faint" style={{ fontSize: 12 }}>{m.cidade} · {m.status.toLowerCase()}</div></td>
-                    <td className="r"><span className={`badge ${(m.dias ?? 0) > 90 ? "bad" : (m.dias ?? 0) > 60 ? "warn" : "ok"}`}>{m.dias}</span></td>
-                    <td className="r">{fmt.brl(m.realinhamento)}</td>
-                    <td className="r" style={{ color: m.realinhamento != null && m.custo != null && m.realinhamento - m.custo < 0 ? "var(--bad)" : undefined }}>
-                      {m.realinhamento != null && m.custo != null ? fmt.brl(m.realinhamento - m.custo) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <section className="panel">
+          <div className="panel-head"><h2>Motos mais paradas</h2><Link href="/estoque" className="hint orange">estoque →</Link></div>
+          <ul className="simple-list">
+            {motos.slice(0, 8).map((m) => {
+              const mg = m.realinhamento != null && m.custo != null ? m.realinhamento - m.custo : null;
+              return (
+                <li key={m.id}>
+                  <Link href={`/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`} className="simple-row">
+                    <span className={`badge ${(m.dias ?? 0) > 90 ? "bad" : (m.dias ?? 0) > 60 ? "warn" : "ok"}`}>{m.dias}d</span>
+                    <span className="simple-main">{m.modelo}<small>{m.placa} · {m.cidade}{mg != null ? ` · margem ${fmt.brl(mg)}` : ""}</small></span>
+                    <span className="simple-side strong">{fmt.brl(m.realinhamento)}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </section>
 
-        <section>
-          <div className="panel-head"><h2>Vendas em andamento</h2><span className="hint">ainda não faturadas</span></div>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>Data</th><th>Vendedor</th><th>Veículo</th><th>Situação</th></tr></thead>
-              <tbody>
-                {emAndamento.map((v) => (
-                  <tr key={v.id}>
-                    <td className="num">{fmt.date(v.data ? new Date(v.data) : null)}</td>
-                    <td>{v.vendedorCurto}</td>
-                    <td>{v.veiculo}{v.placa && <> <span className="plate">{v.placa}</span></>}<div className="faint" style={{ fontSize: 12 }}>{v.cliente}</div></td>
-                    <td><span className="badge warn">{v.situacao.toLowerCase()}</span></td>
-                  </tr>
-                ))}
-                {emAndamento.length === 0 && <tr><td colSpan={4} className="empty">Todas as vendas do mês estão faturadas.</td></tr>}
-              </tbody>
-            </table>
-          </div>
+        <section className="panel">
+          <div className="panel-head"><h2>A faturar</h2><span className="hint">vendidas, ainda não faturadas</span></div>
+          {emAndamento.length === 0 ? <div className="faint" style={{ fontSize: 14 }}>Todas as vendas do mês estão faturadas.</div> : (
+            <ul className="simple-list">
+              {emAndamento.map((v) => (
+                <li key={v.id}>
+                  <Link href={`/vendas/editar?${new URLSearchParams({ aba: v.aba, linha: String(v.linha) })}`} className="simple-row">
+                    <span className="badge warn">{v.situacao === "ESTOQUE" ? "a faturar" : v.situacao.toLowerCase()}</span>
+                    <span className="simple-main">{v.veiculo}<small>{v.vendedorCurto}{v.cliente ? ` · ${v.cliente}` : ""}</small></span>
+                    <span className="faint simple-side">{fmt.date(v.data ? new Date(v.data) : null).slice(0, 5)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
 
