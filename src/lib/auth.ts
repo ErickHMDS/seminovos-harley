@@ -71,11 +71,19 @@ export async function lerToken(token: string | undefined): Promise<Perfil | null
 }
 
 export function senhaDoPerfil(perfil: Perfil): string | undefined {
-  const v = process.env[`SENHA_${perfil.toUpperCase()}`];
-  return v && v.length > 0 ? v : undefined;
+  const v = process.env[`SENHA_${perfil.toUpperCase()}`]?.trim();
+  return v ? v : undefined;
 }
 
-export function senhaConfere(perfil: Perfil, senha: string): boolean {
-  const esperada = senhaDoPerfil(perfil);
-  return !!esperada && iguais(senha, esperada);
+/** A senha identifica o perfil: devolve o perfil cuja senha confere (ou null). */
+export function perfilPelaSenha(senha: string): Perfil | null {
+  const s = senha.trim();
+  if (!s) return null;
+  for (const p of Object.keys(PERFIS) as Perfil[]) {
+    const esperada = senhaDoPerfil(p);
+    if (esperada && iguais(s, esperada)) return p;
+  }
+  return null;
 }
+
+export const algumaSenhaConfigurada = () => (Object.keys(PERFIS) as Perfil[]).some((p) => !!senhaDoPerfil(p));
