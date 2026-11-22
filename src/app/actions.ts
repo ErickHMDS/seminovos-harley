@@ -1,7 +1,8 @@
 "use server";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { COOKIE, PERFIS, algumaSenhaConfigurada, criarToken, perfilPelaSenha } from "@/lib/auth";
+import { opcoesCookie } from "@/lib/cookie";
 
 export type LoginState = { erro?: string };
 
@@ -14,14 +15,12 @@ export async function entrar(_: LoginState, form: FormData): Promise<LoginState>
     return { erro: "Senha incorreta." };
   }
   const { token, maxAge } = await criarToken(perfil);
-  // cookie "secure" só quando o acesso é por https (em http o navegador recusaria o cookie)
-  const h = await headers();
-  const https = (h.get("x-forwarded-proto") ?? "").split(",")[0].trim() === "https";
-  (await cookies()).set(COOKIE, token, { httpOnly: true, secure: https, sameSite: "lax", maxAge, path: "/" });
+  (await cookies()).set(COOKIE, token, await opcoesCookie(maxAge));
   redirect(PERFIS[perfil].inicio);
 }
 
 export async function sair() {
-  (await cookies()).delete(COOKIE);
+  // apaga com os mesmos atributos usados na criação (cookie particionado só some assim)
+  (await cookies()).set(COOKIE, "", await opcoesCookie(0));
   redirect("/login");
 }

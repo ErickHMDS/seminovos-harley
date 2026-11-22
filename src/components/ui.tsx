@@ -32,9 +32,9 @@ export function Columns({ data }: { data: { label: string; value: number; curren
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
     <div className="cols" role="img" aria-label={data.map((d) => `${d.label}: ${d.value}`).join(", ")}>
-      {data.map((d) => (
+      {data.map((d, i) => (
         <div className="col" key={d.label}>
-          <div className={`col-bar ${d.current ? "current" : ""}`} style={{ height: `${Math.max(2, (d.value / max) * 100)}%` }}>
+          <div className={`col-bar ${d.current ? "current" : ""}`} style={{ height: `${Math.max(2, (d.value / max) * 100)}%`, ["--i" as string]: i }}>
             <span>{d.value}</span>
           </div>
           <div className="col-label">{d.label}</div>
