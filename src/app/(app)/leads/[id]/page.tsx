@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AtividadesLigadas } from "@/components/AtividadesLigadas";
+import { atividadesDoLead } from "@/lib/atividades";
 import { getCatalogo } from "@/lib/catalogo";
 import { exigirSessao } from "@/lib/sessao";
 import { getUsuarios } from "@/lib/usuarios";
@@ -28,7 +30,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           <p className="meta-line"><span className={`badge ${st.tom}`}>{st.label}</span> quer <strong>{l.desejo}</strong>{l.aceitaEquivalente ? " · aceita equivalente" : ""}{s.perfil === "gestor" ? ` · ${l.vendedor}` : ""}</p>
         </div>
       </div>
-      {salvo && <div className="alert ok toast" role="status">{salvo === "novo" ? "Lead cadastrado. Assim que entrar uma moto compatível, ela aparece em Oportunidades." : "Lead atualizado."}</div>}
+      {salvo && <div className="alert ok toast" role="status">{salvo === "novo" ? "Lead cadastrado. Assim que entrar uma moto compatível, ela aparece em Oportunidades." : salvo === "atividade" ? "Atividade registrada neste lead." : "Lead atualizado."}</div>}
 
       <section className="sec" style={{ marginBottom: 14 }}>
         <div className="sec-head"><h2 className="sec-title">Falar com o cliente</h2><span className="faint" style={{ fontSize: 13 }}>{l.telefone}</span></div>
@@ -43,6 +45,9 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
           <div className="op-list">{l.matches.map((m) => <div key={m.placa} className="op-match"><MatchChip m={m} /><Contato l={l} placa={m.placa} vendedor={vendedor} compacto /></div>)}</div>
         )}
       </section>
+
+      <AtividadesLigadas className="sec" atividades={await atividadesDoLead(l.id).catch(() => [])} novoHref={`/atividades/nova?${new URLSearchParams({ lead: l.id, volta: `/leads/${l.id}` })}`} />
+      <div style={{ height: 14 }} />
 
       <LeadForm lead={l} catalogo={modelos} vendedores={usuarios.filter((u) => u.perfil === "vendedor" && u.ativo).map((u) => ({ id: u.id, nome: u.nome }))} />
 

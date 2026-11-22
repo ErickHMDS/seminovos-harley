@@ -65,11 +65,22 @@ function hojeBR() {
   return new Date().toLocaleDateString("pt-BR", { timeZone: TZ });
 }
 
-async function lerAba(): Promise<{ header: string[]; rows: string[][]; existe: boolean }> {
-  const abas = await listSheets(config.estoqueId);
-  if (!abas.some((a) => a.title === config.preparacaoAba)) return { header: [], rows: [], existe: false };
-  const [header = [], ...rows] = await getValues(config.estoqueId, range(config.preparacaoAba, "A1:AZ"));
-  return { header, rows, existe: true };
+/**
+ * Planilha da aba "Motos em Preparação": a planilha do app. Enquanto a aba ainda não tiver
+ * sido migrada, continua usando a da planilha de estoque (onde ela nasceu).
+ */
+async function planilhaPrep(): Promise<string> {
+  if ((await listSheets(config.appId)).some((a) => a.title === config.preparacaoAba)) return config.appId;
+  if ((await listSheets(config.estoqueId)).some((a) => a.title === config.preparacaoAba)) return config.estoqueId;
+  return config.appId;
+}
+
+async function lerAba(): Promise<{ header: string[]; rows: string[][]; existe: boolean; sid: string }> {
+  const sid = await planilhaPrep();
+  const abas = await listSheets(sid);
+  if (!abas.some((a) => a.title === config.preparacaoAba)) return { header: [], rows: [], existe: false, sid };
+  const [header = [], ...rows] = await getValues(sid, range(config.preparacaoAba, "A1:AZ"));
+  return { header, rows, existe: true, sid };
 }
 
 function indices(header: string[]) {
@@ -126,17 +137,17 @@ export async function getItem(id: string) {
 
 /** Garante que a aba exista e que todas as colunas do app estejam no cabeçalho (acrescenta à direita). */
 async function garantirCabecalho(): Promise<string[]> {
-  const { header, existe } = await lerAba();
-  if (!existe) await addSheet(config.estoqueId, config.preparacaoAba);
+  const { header, existe, sid } = await lerAba();
+  if (!existe) await addSheet(sid, config.preparacaoAba);
   const atual = [...header];
   while (atual.length && !clean(atual[atual.length - 1])) atual.pop();
   const presentes = new Set(atual.map(norm));
   const faltando = CAMPOS.map((c) => COLUNAS[c]).filter((nome) => !presentes.has(norm(nome)));
   if (faltando.length) {
     const novo = [...atual, ...faltando];
-    const info = (await listSheets(config.estoqueId)).find((a) => a.title === config.preparacaoAba);
-    if (info) await ensureColumns(config.estoqueId, info, novo.length);
-    await updateValues(config.estoqueId, range(config.preparacaoAba, "A1"), [novo]);
+    const info = (await listSheets(sid)).find((a) => a.title === config.preparacaoAba);
+    if (info) await ensureColumns(sid, info, novo.length);
+    await updateValues(sid, range(config.preparacaoAba, "A1"), [novo]);
     return novo;
   }
   return atual;
@@ -157,7 +168,7 @@ export async function criar(dados: Partial<Record<Campo, string>>): Promise<stri
   };
   const linha = header.map(() => "");
   for (const c of CAMPOS) if (idx[c] >= 0 && valores[c] != null) linha[idx[c]] = seguro(String(valores[c]));
-  await appendValues(config.estoqueId, range(config.preparacaoAba, "A1"), [linha]);
+  await appendValues(await planilhaPrep(), range(config.preparacaoAba, "A1"), [linha]);
   invalidate("preparacao");
   // a pasta de fotos no Drive já nasce na recepção, para o preparador só subir as fotos
   if (valores.placa) await (await import("./drive")).pastaAutomatica(valores.placa, valores.modelo ?? "");
@@ -167,7 +178,8 @@ export async function criar(dados: Partial<Record<Campo, string>>): Promise<stri
 export async function atualizar(id: string, dados: Partial<Record<Campo, string>>): Promise<string> {
   const header = await garantirCabecalho();
   const idx = indices(header);
-  const rows = await getValues(config.estoqueId, range(config.preparacaoAba, "A1:AZ"));
+  const sid = await planilhaPrep();
+  const rows = await getValues(sid, range(config.preparacaoAba, "A1:AZ"));
   let n = rows.findIndex((r, i) => i > 0 && idx.id >= 0 && clean(r[idx.id]) === id);
   if (n < 0 && /^L\d+$/.test(id)) n = Number(id.slice(1)) - 1; // linha lançada manualmente
   if (n < 1 || n >= rows.length) throw new Error("Moto não encontrada na planilha de preparação.");
@@ -183,7 +195,7 @@ export async function atualizar(id: string, dados: Partial<Record<Campo, string>
     range: range(config.preparacaoAba, `${colLetra(idx[c])}${n + 1}`),
     values: [[seguro(String(valores[c]))]],
   }));
-  await batchUpdateValues(config.estoqueId, celulas);
+  await batchUpdateValues(sid, celulas);
   invalidate("preparacao");
   return novoId;
 }

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Fab } from "@/components/Fab";
 import { Icon } from "@/components/Icon";
 import { VendasLista } from "@/components/VendasLista";
 import { getEstoque } from "@/lib/estoque";
@@ -29,7 +28,7 @@ function diasDeLoja(mes: string) {
 }
 
 const taxa = (n: number, d: number) => (d ? n / d : 0);
-const SALVO: Record<string, string> = { lancada: "Venda lançada na planilha.", editada: "Venda atualizada." };
+const SALVO: Record<string, string> = { lancada: "Venda lançada na planilha.", editada: "Venda atualizada.", atividade: "Atividade lançada — está nas suas Tarefas." };
 
 export default async function MetaPage({ searchParams }: { searchParams: Promise<{ v?: string; salvo?: string }> }) {
   const s = await exigirSessao("/meta");
@@ -112,13 +111,19 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
           <div className="eyebrow">{s.perfil === "gestor" ? "Metas da equipe" : "Minha meta"} · {monthLabel(mes)}</div>
           <h1>{s.perfil === "gestor" ? eu.nome : `Bora, ${eu.nome.split(" ")[0]}!`}</h1>
         </div>
-        {s.perfil === "vendedor" && <Link href="/vendas/nova" className="btn desktop-only"><Icon name="plus" size={16} /> Lançar venda</Link>}
         {s.perfil === "gestor" && (
           <div className="chips scroll" style={{ maxWidth: "100%" }}>
             {rank.map((r) => <Link key={r.vendedor} href={`/meta?v=${encodeURIComponent(r.vendedor)}`} className={`chip ${r.vendedor === alvo ? "active" : ""}`} scroll={false}>{r.nome}</Link>)}
           </div>
         )}
       </div>
+      {s.perfil === "vendedor" && (
+        <nav className="acoes-rapidas" aria-label="Lançamentos">
+          <Link href="/vendas/nova" className="acao-rapida principal"><Icon name="plus" size={18} /><span>Lançar venda</span></Link>
+          <Link href="/leads/novo" className="acao-rapida"><Icon name="leads" size={18} /><span>Lançar lead</span></Link>
+          <Link href="/atividades/nova?volta=/meta" className="acao-rapida"><Icon name="atividades" size={18} /><span>Lançar atividade</span></Link>
+        </nav>
+      )}
       {salvo && SALVO[salvo] && <div className="alert ok toast" role="status">{SALVO[salvo]}</div>}
       <MetaView d={data} />
 
@@ -131,7 +136,6 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
           <div className="empty-state"><div className="empty-icon">🏍️</div><strong>Nenhuma venda lançada neste mês</strong><span>Use “Lançar venda” quando fechar a próxima.</span></div>
         )}
       </section>
-      {s.perfil === "vendedor" && <Fab href="/vendas/nova" label="Lançar venda" />}
     </>
   );
 }

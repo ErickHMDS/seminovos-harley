@@ -15,8 +15,8 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 | **Estoque** | Todos (custo/margem e edição só Gestor) | Busca e filtros. **Gestor adiciona, edita e remove motos.** |
 | **Atividades** | Gestor | Pendências da inspeção 360 viram atividades; o gestor resolve (com nota) ou cria tarefas avulsas. |
 | **Catálogo** | Gestor | Marcas e modelos (tipo, cilindrada, anos, apelidos) e **segmentos de equivalência** entre marcas. Base do autocompletar e dos leads. |
-| **Minha meta** | Vendedor (gestor vê de todos) | Tela inicial do vendedor: **Lançar venda** e tabela com as vendas dele no mês. Anel da meta, ritmo por dia de loja, projeção, distância no ranking, FIN/G.E/usado × equipe, histórico e plano do dia. |
-| **Tarefas / Atividades** | Vendedor: leads sem Syonet. Gestor: cobrança por vendedor (uma linha, prioridade pela quantidade; "Cobrei" esconde por 24 h) + pendências da 360 | |
+| **Minha meta** | Vendedor (gestor vê de todos) | Tela inicial do vendedor: **Lançar venda, Lançar lead e Lançar atividade** e tabela com as vendas dele no mês. Anel da meta, ritmo por dia de loja, projeção, distância no ranking, FIN/G.E/usado × equipe, histórico e plano do dia. |
+| **Tarefas / Atividades** | Vendedor: as próprias atividades (rotina, ligadas a uma moto ou a um lead — aparecem na ficha da moto e no lead) + leads sem Syonet. Gestor: cobrança por vendedor (uma linha, prioridade pela quantidade; "Cobrei" esconde por 24 h) + pendências da 360 | |
 | **Leads** | Vendedor (só os seus), Gestor (todos) | Cliente + moto desejada. Oportunidades quando entra no estoque/preparação a moto exata ou equivalente; ligar, WhatsApp com mensagem pronta, registrar contato, retornos do dia. |
 | **Cadastro** | Gestor | Equipe com senha individual (vendedor, preparador, gestor), redefinir senha/desativar, vínculo com o vendedor da planilha, e-mails dos coordenadores. |
 
@@ -42,8 +42,8 @@ A base de dados continua sendo o Google Sheets: **tudo o que é feito no app vai
 ## Planilhas
 
 - **MOTOS 2026** (`SHEET_VENDAS_ID`): vendas.
-- **Estoque Motos / Realinhamento** (`SHEET_ESTOQUE_ID`): `Estoque CTBA`, `Estoque LOND` (+ colunas Marca/Tipo) e `Motos em Preparação`.
-- **Servopa Seminovos - App** (`SHEET_APP_ID`): dados do app — `Usuários App`, `Configurações App`, `Leads`, `Atividades`, `Cobranças`, `Catálogo Motos`, `Fotos`, `Backup Ajustes App`.
+- **Estoque Motos / Realinhamento** (`SHEET_ESTOQUE_ID`): `Estoque CTBA` e `Estoque LOND` (+ colunas Marca/Tipo).
+- **Servopa Seminovos - App** (`SHEET_APP_ID`): dados do app — `Motos em Preparação`, `Usuários App`, `Configurações App`, `Leads`, `Atividades`, `Cobranças`, `Catálogo Motos`, `Fotos`, `Backup Ajustes App`.
 
 ## Fotos das motos
 

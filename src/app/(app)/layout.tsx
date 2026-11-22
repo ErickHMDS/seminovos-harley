@@ -30,9 +30,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const perfil = sessao.perfil;
   const abertas =
     perfil === "gestor"
-      ? (await getAtividades().catch(() => [])).filter((a) => a.aberta).length + (await monitoramento().catch(() => [])).length
+      ? (await getAtividades().catch(() => [])).filter((a) => a.aberta && a.origem !== "Vendedor").length + (await monitoramento().catch(() => [])).length
       : perfil === "vendedor"
-        ? (await leadsVisiveis(sessao).catch(() => [])).filter(semSyonet).length
+        ? (await leadsVisiveis(sessao).catch(() => [])).filter(semSyonet).length + (await getAtividades().catch(() => [])).filter((a) => a.aberta && a.responsavelId === sessao.uid).length
         : 0;
   const itens: NavItem[] = ITENS.filter((i) => podeAcessar(perfil, i.href) && !i.ocultoPara?.includes(perfil)).map(({ soDesktopPara, menuPara, ocultoPara: _o, ...i }) => ({
     ...i,

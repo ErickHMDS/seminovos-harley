@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AtividadesLigadas } from "@/components/AtividadesLigadas";
 import { ChecklistResumo } from "@/components/ChecklistResumo";
+import { atividadesDaPlaca } from "@/lib/atividades";
 import { getMoto, motoPorPlaca } from "@/lib/estoque";
 import { armazenamentoConfigurado, fotosDaPlaca } from "@/lib/fotos";
 import { linkPasta, pastaConfigurada, pastaDaPlaca } from "@/lib/drive";
@@ -15,9 +17,9 @@ export const dynamic = "force-dynamic";
 
 const tomDias = (d: number | null) => (d == null ? "" : d > 90 ? "bad" : d > 60 ? "warn" : "ok");
 
-export default async function FichaMotoPage({ searchParams }: { searchParams: Promise<{ aba?: string; linha?: string; placa?: string }> }) {
+export default async function FichaMotoPage({ searchParams }: { searchParams: Promise<{ aba?: string; linha?: string; placa?: string; salvo?: string }> }) {
   const s = await exigirSessao("/estoque");
-  const { aba = "", linha = "", placa = "" } = await searchParams;
+  const { aba = "", linha = "", placa = "", salvo } = await searchParams;
   const m = placa ? await motoPorPlaca(placa) : await getMoto(aba, Number(linha));
   if (!m && placa) {
     // ainda não entrou no estoque: mostra a moto na preparação
@@ -52,6 +54,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
         <div><Link href="/estoque" className="back-link">← Estoque</Link></div>
         {gestor && <Link href={`/estoque/moto?${new URLSearchParams({ aba: m.aba, linha: String(m.linha) })}`} className="btn small ghost">Editar dados</Link>}
       </div>
+      {salvo === "atividade" && <div className="alert ok toast" role="status" style={{ marginBottom: 12 }}>Atividade registrada nesta moto.</div>}
       <div className="ficha">
         <Galeria fotos={fotos.map((f) => ({ id: f.id, url: f.url }))} placa={m.placa} editar={s.perfil !== "vendedor"} modelo={m.modelo} armazenamento={armazenamentoConfigurado()} drive={!!(await pastaConfigurada().catch(() => null))} pastaDrive={s.perfil !== "vendedor" ? await pastaDaPlaca(m.placa).then((p) => (p ? linkPasta(p.id) : null)).catch(() => null) : null} />
         <div className="ficha-info">
@@ -91,6 +94,10 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
                 </ul>
               )}
             </section>
+          )}
+          {s.perfil !== "preparador" && (
+            <AtividadesLigadas atividades={(await atividadesDaPlaca(m.placa).catch(() => [])).filter((a) => s.perfil === "gestor" || a.responsavelId === s.uid || a.origem !== "Vendedor")}
+              novoHref={`/atividades/nova?${new URLSearchParams({ placa: m.placa, volta: `/estoque/ver?placa=${m.placa}` })}`} />
           )}
         </div>
       </div>

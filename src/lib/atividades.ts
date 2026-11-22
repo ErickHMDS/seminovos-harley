@@ -6,7 +6,11 @@ import { pendencias } from "./checklist";
 import { TZ, clean } from "./parse";
 import { colLetra, valorSeguro } from "./planilha";
 
-/** Atividades do gestor: pendências da inspeção 360 (automáticas) e tarefas avulsas. Ficam na aba "Atividades". */
+/**
+ * Atividades: pendências da inspeção 360 (automáticas), tarefas avulsas do gestor e tarefas dos
+ * vendedores (origem "Vendedor", com responsável). Podem estar ligadas a uma moto (placa) ou a um lead.
+ * Ficam na aba "Atividades" da planilha do app.
+ */
 const COLS = {
   id: "ID",
   criadaEm: "Criada Em",
@@ -19,6 +23,11 @@ const COLS = {
   resolvidaEm: "Resolvida Em",
   resolucao: "Resolução",
   ref: "Ref Preparação",
+  responsavelId: "Responsável ID",
+  responsavel: "Responsável",
+  lead: "Lead ID",
+  cliente: "Lead Cliente",
+  prazo: "Prazo",
 } as const;
 type Col = keyof typeof COLS;
 const CAMPOS = Object.keys(COLS) as Col[];
@@ -67,7 +76,7 @@ async function garantirAba(): Promise<string[]> {
   return novo;
 }
 
-type Nova = { placa?: string; modelo?: string; item?: string; descricao: string; origem: string; ref?: string };
+type Nova = { placa?: string; modelo?: string; item?: string; descricao: string; origem: string; ref?: string; responsavelId?: string; responsavel?: string; lead?: string; cliente?: string; prazo?: string };
 
 async function criarVarias(novas: Nova[]) {
   if (!novas.length) return;
@@ -78,6 +87,7 @@ async function criarVarias(novas: Nova[]) {
     const v: Record<Col, string> = {
       id: `A${(base + k).toString(36).toUpperCase()}`, criadaEm: agora(), placa: n.placa ?? "", modelo: n.modelo ?? "",
       item: n.item ?? "", descricao: n.descricao, origem: n.origem, status: "ABERTA", resolvidaEm: "", resolucao: "", ref: n.ref ?? "",
+      responsavelId: n.responsavelId ?? "", responsavel: n.responsavel ?? "", lead: n.lead ?? "", cliente: n.cliente ?? "", prazo: n.prazo ?? "",
     };
     const linha = header.map(() => "");
     for (const c of CAMPOS) if (idx[c] >= 0) linha[idx[c]] = String(valorSeguro(v[c]));
@@ -139,7 +149,12 @@ export async function reabrirAtividade(id: string) {
   invalidate("atividades");
 }
 
-export async function criarAtividade(descricao: string, placa = "", modelo = "") {
-  await criarVarias([{ descricao, placa: placa.toUpperCase(), modelo: modelo.toUpperCase(), origem: "Manual" }]);
+export async function criarAtividade(n: Omit<Nova, "origem"> & { origem?: string }) {
+  await criarVarias([{ ...n, origem: n.origem ?? "Manual", placa: clean(n.placa ?? "").toUpperCase().replace(/[^A-Z0-9]/g, ""), modelo: clean(n.modelo ?? "").toUpperCase() }]);
   invalidate("atividades");
 }
+
+export const ehDoVendedor = (a: Atividade) => a.origem === "Vendedor";
+export const atividadesDoResponsavel = async (uid: string) => (await getAtividades()).filter((a) => a.responsavelId === uid);
+export const atividadesDaPlaca = async (placa: string) => (await getAtividades()).filter((a) => a.placa && a.placa === clean(placa).toUpperCase());
+export const atividadesDoLead = async (id: string) => (await getAtividades()).filter((a) => a.lead === id);

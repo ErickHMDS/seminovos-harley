@@ -1051,3 +1051,22 @@ a.match-top:hover .match-ir { color: var(--accent-hot); }
 .galeria-acoes .galeria-link { flex: 1 1 100%; }
 
 .meta-vendas { margin-top: 28px; }
+
+/* três lançamentos rápidos do vendedor (Minha meta) */
+.acoes-rapidas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 18px; }
+.acao-rapida { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 10px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--panel); color: #fff; text-decoration: none; font-family: var(--font-head); font-style: italic; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; font-size: 14px; transition: border-color .15s, transform .15s, background .15s; }
+.acao-rapida:hover { border-color: var(--accent); transform: translateY(-1px); }
+.acao-rapida.principal { background: linear-gradient(135deg, var(--accent-deep), var(--accent)); border-color: transparent; }
+@media (max-width: 560px) {
+  .acoes-rapidas { gap: 8px; }
+  .acao-rapida { flex-direction: column; gap: 4px; padding: 12px 6px; font-size: 11.5px; text-align: center; line-height: 1.15; }
+}
+
+.atv-ligadas .sec-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+.atv-ligadas h2 { margin: 0; }
+.atv-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.atv-lista li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; font-size: 14px; }
+.atv-lista li .dot-state { margin-top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn, #e0a526); display: inline-block; }
+.atv-lista li.feita { opacity: .6; }
+.atv-lista li.feita .dot-state { background: var(--ok); }
+.atv-lista small { display: block; font-size: 12px; margin-top: 2px; }
