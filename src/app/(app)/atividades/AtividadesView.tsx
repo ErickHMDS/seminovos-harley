@@ -72,7 +72,7 @@ function Linha({ a, hoje, status, mudar, pend }: { a: AtvVM; hoje: string; statu
     <li className={`atv-linha-item ${feita ? "feita" : ""} ${a.urgente && !feita ? "urgente" : ""} ${a.atrasada && !feita ? "atrasada" : ""}`}>
       <button type="button" className="atv-check" aria-label={feita ? "Reabrir" : "Finalizar"} disabled={pend} onClick={() => mudar(a.id, feita ? "A FAZER" : "FINALIZADO")}>{feita ? "✓" : ""}</button>
       <div className="atv-corpo">
-        <Link href={`/atividades/${encodeURIComponent(a.id)}`} className="atv-titulo">{a.descricao}</Link>
+        <Link href={`/atividades/${encodeURIComponent(a.id)}?volta=${encodeURIComponent("/atividades?v=lista")}`} className="atv-titulo">{a.descricao}</Link>
         <Meta a={a} hoje={hoje} />
         {a.observacao && !feita && <div className="atv-obs">{a.observacao}</div>}
       </div>
@@ -139,7 +139,7 @@ function Cartao({ a, hoje, status, acoes }: { a: AtvVM; hoje: string; status: St
   return (
     <article className={`kb-card ${a.urgente && status !== "FINALIZADO" ? "urgente" : ""} ${status === "FINALIZADO" ? "feita" : ""}`} draggable
       onDragStart={(e) => { e.dataTransfer.setData("text/plain", a.id); e.dataTransfer.effectAllowed = "move"; }}>
-      <Link href={`/atividades/${encodeURIComponent(a.id)}?volta=${encodeURIComponent("/atividades?v=kanban")}`} className="kb-titulo">{a.descricao}</Link>
+      <Link href={`/atividades/${encodeURIComponent(a.id)}`} className="kb-titulo">{a.descricao}</Link>
       <Meta a={a} hoje={hoje} compacto />
       {a.observacao && status !== "FINALIZADO" && <div className="atv-obs">{a.observacao}</div>}
       <div className="kb-acoes">
@@ -166,9 +166,11 @@ function Kanban({ itens, hoje, acoes }: { itens: AtvVM[]; hoje: string; acoes: R
     { id: "andamento", titulo: "Em andamento", lista: itens.filter((a) => !a.atrasada && st(a) === "EM ANDAMENTO").sort(ordK), alvo: "EM ANDAMENTO", tom: "warn" },
     { id: "fim", titulo: "Finalizado", lista: finRecentes, alvo: "FINALIZADO", tom: "ok", nota: fin.length > finRecentes.length ? `últimos 7 dias · ${fin.length - finRecentes.length} mais antigas na Lista` : "últimos 7 dias" },
   ];
+  // a coluna "Atrasadas" só aparece quando há atividade atrasada
+  const visiveis = colunas.filter((c) => c.id !== "atrasadas" || c.lista.length > 0);
   return (
-    <div className="kanban">
-      {colunas.map((c) => (
+    <div className="kanban" style={{ ["--kb-cols" as string]: visiveis.length }}>
+      {visiveis.map((c) => (
         <section key={c.id} className={`kb-col kb-${c.id} ${sobre === c.id ? "sobre" : ""}`}
           onDragOver={(e) => { if (c.alvo) { e.preventDefault(); setSobre(c.id); } }} onDragLeave={() => setSobre(null)}
           onDrop={(e) => { e.preventDefault(); setSobre(null); const id = e.dataTransfer.getData("text/plain"); const a = itens.find((x) => x.id === id); if (a && c.alvo && st(a) !== c.alvo) acoes.mudar(id, c.alvo); }}>
@@ -187,7 +189,7 @@ function Kanban({ itens, hoje, acoes }: { itens: AtvVM[]; hoje: string; acoes: R
 export function AtividadesView({ atividades, visao, filtro, pessoas, hoje }: { atividades: AtvVM[]; visao: "lista" | "kanban"; filtro: string; pessoas: PessoaF[]; hoje: string }) {
   const router = useRouter();
   const acoes = useAcoes();
-  const q = (v: string, p: string) => { const s = new URLSearchParams(); if (v === "kanban") s.set("v", v); if (p) s.set("p", p); const t = s.toString(); return `/atividades${t ? `?${t}` : ""}`; };
+  const q = (v: string, p: string) => { const s = new URLSearchParams(); if (v === "lista") s.set("v", v); if (p) s.set("p", p); const t = s.toString(); return `/atividades${t ? `?${t}` : ""}`; };
   return (
     <>
       <div className="atv-barra">

@@ -40,7 +40,7 @@ export default async function AtividadesPage({ searchParams }: { searchParams: P
   const abertas = vm.filter((a) => a.status !== "FINALIZADO").length;
   const atrasadas = vm.filter((a) => a.atrasada).length;
   const pessoasFiltro = usuarios.filter((u) => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)).map((u) => ({ id: u.id, nome: u.nome, perfil: u.perfil }));
-  const visao = sp.v === "kanban" ? "kanban" : "lista";
+  const visao = sp.v === "lista" ? "lista" : "kanban"; // Kanban é a visão principal
 
   return (
     <>
@@ -64,6 +64,7 @@ export default async function AtividadesPage({ searchParams }: { searchParams: P
         </section>
       )}
 
+      <span className="atv-full" hidden />
       <AtividadesView atividades={vm} visao={visao} filtro={filtro} pessoas={gestor ? pessoasFiltro : []} hoje={agora.data} />
 
       {s.perfil === "vendedor" && (
