@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
 import { Icon } from "./Icon";
 
 export type NavItem = { href: string; label: string; short: string; icon: string; soon?: boolean; badge?: number; desktopOnly?: boolean; menu?: boolean };
@@ -27,23 +26,10 @@ export function Nav({ items }: { items: NavItem[] }) {
   const path = usePathname();
   const principais = items.filter((i) => !i.menu);
   const extras = items.filter((i) => i.menu);
-  const mais = useRef<HTMLDetailsElement>(null);
-  useEffect(() => { if (mais.current) mais.current.open = false; }, [path]);
   const vendasEm = items.some((i) => i.href === "/ranking") ? "/ranking" : "/meta";
-  const extraAtivo = extras.some((i) => ativo(path, i.href, vendasEm));
   return (
-    <nav className="nav" aria-label="Áreas">
-      {principais.map((it) => <Item key={it.href} it={it} path={path} vendasEm={vendasEm} />)}
-      {/* telas largas: os itens do "Mais" aparecem direto na barra (o CSS esconde o "Mais") */}
-      {extras.map((it) => <Item key={`x-${it.href}`} it={it} path={path} vendasEm={vendasEm} cls="nav-extra" />)}
-      {extras.length > 0 && (
-        <details className="nav-mais desktop-only" ref={mais}>
-          <summary aria-current={extraAtivo ? "page" : undefined}>
-            <span className="nav-ico"><Icon name="mais" /></span><span className="nav-long">Mais</span><span aria-hidden className="nav-seta">▾</span>
-          </summary>
-          <div className="nav-mais-menu">{extras.map((it) => <Item key={it.href} it={{ ...it, desktopOnly: false }} path={path} vendasEm={vendasEm} />)}</div>
-        </details>
-      )}
+    <nav className={`nav ${principais.length + extras.length > 7 ? "muitos" : ""}`} aria-label="Áreas">
+      {[...principais, ...extras].map((it) => <Item key={it.href} it={it} path={path} vendasEm={vendasEm} />)}
     </nav>
   );
 }

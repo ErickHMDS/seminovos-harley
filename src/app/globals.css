@@ -1182,15 +1182,15 @@ a.match-top:hover .match-ir { color: var(--accent-hot); }
 .atv-form-acoes { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .perigo-txt { color: var(--bad) !important; border-color: color-mix(in srgb, var(--bad) 50%, transparent) !important; }
 
-/* Atividades usam a largura toda da tela */
-main.page:has(.atv-full) { max-width: none; padding-left: 24px; padding-right: 24px; }
-@media (max-width: 640px) { main.page:has(.atv-full) { padding-left: 16px; padding-right: 16px; } }
-body:has(.atv-full) .topbar-inner { max-width: none; padding-left: 24px; padding-right: 24px; }
 
-/* cabeçalho: com espaço sobrando, Metas/Catálogo/Cadastro ficam na barra e o "Mais" some */
-.nav a.nav-extra { display: none; }
-@media (min-width: 1600px) {
-  .topbar-inner { max-width: none; padding-left: 24px; padding-right: 24px; }
-  .nav a.nav-extra { display: flex; }
-  .nav .nav-mais { display: none; }
+/* todas as telas usam a largura toda; menu sem "Mais": em telas menores, só ícones */
+main.page { max-width: none; padding-left: 24px; padding-right: 24px; }
+.topbar-inner { max-width: none; padding-left: 24px; padding-right: 24px; }
+@media (max-width: 860px) { main.page { padding-left: 16px; padding-right: 16px; } .topbar-inner { padding-left: 16px; padding-right: 16px; } }
+@media (min-width: 861px) and (max-width: 1640px) {
+  .nav.muitos > a:not([aria-current="page"]) .nav-long { display: none; }
+  .nav.muitos > a:not([aria-current="page"]) { padding: 8px 11px; }
+}
+@media (min-width: 861px) and (max-width: 1100px) {
+  .nav.muitos > a[aria-current="page"] .nav-long { display: none; }
 }

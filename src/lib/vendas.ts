@@ -2,7 +2,7 @@ import "server-only";
 import { batchClear, batchGet, batchUpdateValues, getFormulas, listSheets, range } from "./google";
 import { cached, invalidate } from "./cache";
 import { config } from "./config";
-import { clean, date, monthKey, num, shortName, yesNo } from "./parse";
+import { clean, date, hojeISO, monthKey, num, shortName, yesNo } from "./parse";
 import { batchUpdateSheet, colLetra, colunasComFormula, indiceCabecalho, reqCopiarFormulas, valorSeguro } from "./planilha";
 
 /** Situações aceitas. As 3 primeiras são contadas como venda pelo PAINEL GERAL (colunas O..S). */
@@ -103,7 +103,12 @@ async function load(): Promise<BaseVendas> {
       if (ok) linhasIdx.push(hi + 1 + i);
       return ok;
     });
-    if (linhas.length === 0) return abasIgnoradas.push({ aba, motivo: "sem vendas lançadas" });
+    if (linhas.length === 0) {
+      // aba ainda vazia (ex.: criada no fim do mês anterior): o mês vem do nome ("DEZEMBRO 2026")
+      const mesNome = mesDoNome(aba);
+      if (mesNome && !porMes.has(mesNome)) { porMes.set(mesNome, { aba, vendas: [] }); return; }
+      return abasIgnoradas.push({ aba, motivo: "sem vendas lançadas" });
+    }
 
     // mês da aba = mês mais frequente entre as datas lançadas
     const contagem = new Map<string, number>();
@@ -152,9 +157,13 @@ async function load(): Promise<BaseVendas> {
     }
   });
 
-  const meses = [...porMes.keys()].sort().reverse();
+  // só conta até o mês atual: a aba do mês seguinte (criada antes) fica escondida até o mês começar
+  const mesAtual = hojeISO().slice(0, 7);
+  const todos = [...porMes.keys()].sort().reverse();
+  const meses = todos.filter((m) => m <= mesAtual);
   return {
-    vendas: meses.flatMap((m) => porMes.get(m)!.vendas),
+    // vendas de mês futuro (data lançada adiantada) continuam editáveis, mas o mês só aparece quando começar
+    vendas: todos.flatMap((m) => porMes.get(m)!.vendas),
     abas: meses.map((m) => ({ aba: porMes.get(m)!.aba, mes: m, vendas: porMes.get(m)!.vendas.length })),
     abasIgnoradas,
     objetivos: parseObjetivos(painel),
@@ -260,6 +269,14 @@ const CAMPOS_PLANILHA: [keyof VendaInput, string][] = [
   ["cliente", "Cliente"], ["veiculo", "Veiculo"], ["placa", "Placa"], ["ge", "G.E"], ["fin", "FIN"], ["usado", "Usado"],
   ["seguro", "SEGURO"], ["prevFaturamento", "Prev. Faturamento"], ["observacoes", "Observações"],
 ];
+
+/** "DEZEMBRO 2026" → "2026-12" */
+function mesDoNome(aba: string): string | null {
+  const m = norm(aba).match(/^([A-ZÇ]+)\s*(?:DE\s*)?(\d{4})$/);
+  if (!m) return null;
+  const i = MESES_NOME.indexOf(m[1]);
+  return i >= 0 ? `${m[2]}-${String(i + 1).padStart(2, "0")}` : null;
+}
 
 const MESES_NOME = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
 
@@ -369,4 +386,28 @@ export async function listaVendedores(): Promise<string[]> {
   const nomes = new Set<string>(Object.keys(base.objetivos));
   base.vendas.filter((v) => recentes.has(v.mes) && v.vendedor !== "SEM VENDEDOR").forEach((v) => nomes.add(v.vendedor));
   return [...nomes].sort();
+}
+
+/**
+ * Automação de virada de mês (rodada todo dia pelo agendador da Vercel): nos últimos 3 dias do mês,
+ * cria a aba do mês seguinte duplicando a do mês atual (fórmulas e formatação, lançamentos limpos).
+ * O app só passa a mostrar o mês novo quando ele começa.
+ */
+export async function prepararProximoMes(forcar = false): Promise<{ criada: string | null; aba: string | null; motivo: string }> {
+  const hoje = hojeISO();
+  const [y, m, d] = hoje.split("-").map(Number);
+  const ultimo = new Date(y, m, 0).getDate();
+  if (!forcar && d < ultimo - 2) return { criada: null, aba: null, motivo: `ainda faltam ${ultimo - d} dias para o fim do mês` };
+  const prox = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+  const nome = `${MESES_NOME[Number(prox.slice(5)) - 1]} ${prox.slice(0, 4)}`;
+  const abas = await listSheets(config.vendasId);
+  const existente = abas.find((a) => norm(a.title) === nome);
+  if (existente) return { criada: null, aba: existente.title, motivo: "a aba do próximo mês já existe" };
+  invalidate("vendas");
+  const base = await getVendas();
+  const modelo = base.abas.find((a) => a.mes === hoje.slice(0, 7))?.aba ?? base.abas[0]?.aba;
+  if (!modelo) throw new Error("Nenhuma aba de mês para usar como modelo.");
+  const aba = await criarAbaDoMes(prox, modelo);
+  invalidate("vendas");
+  return { criada: aba, aba, motivo: `criada a partir de "${modelo}"` };
 }

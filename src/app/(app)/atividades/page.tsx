@@ -64,7 +64,6 @@ export default async function AtividadesPage({ searchParams }: { searchParams: P
         </section>
       )}
 
-      <span className="atv-full" hidden />
       <AtividadesView atividades={vm} visao={visao} filtro={filtro} pessoas={gestor ? pessoasFiltro : []} hoje={agora.data} />
 
       {s.perfil === "vendedor" && (
