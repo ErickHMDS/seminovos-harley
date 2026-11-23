@@ -1,75 +1,76 @@
-import { AtualizarDados } from "@/components/AtualizarDados";
 import Link from "next/link";
+import { AtualizarDados } from "@/components/AtualizarDados";
 import { Icon } from "@/components/Icon";
-import { ehDoVendedor, getAtividades } from "@/lib/atividades";
+import { agoraSP, estaAtrasada, getAtividades, podeExcluir, visivelPara, type Atividade } from "@/lib/atividades";
 import { monitoramento } from "@/lib/cobrancas";
-import { getEstoque } from "@/lib/estoque";
 import { leadsVisiveis, semSyonet } from "@/lib/leads";
 import { exigirSessao } from "@/lib/sessao";
+import { getUsuarios } from "@/lib/usuarios";
 import { AtividadesView, type AtvVM } from "./AtividadesView";
 import { CobrarEquipe, PendenciasSyonet } from "./Equipe";
 
 export const dynamic = "force-dynamic";
 
-const SALVO: Record<string, string> = { atividade: "Atividade lançada." };
-const semLinha = <T extends { linha: number }>({ linha: _l, ...a }: T) => a;
+const SALVO: Record<string, string> = { atividade: "Atividade lançada.", editada: "Atividade atualizada.", excluida: "Atividade excluída." };
 
-export default async function AtividadesPage({ searchParams }: { searchParams: Promise<{ salvo?: string }> }) {
+export default async function AtividadesPage({ searchParams }: { searchParams: Promise<{ salvo?: string; v?: string; p?: string }> }) {
   const s = await exigirSessao("/atividades");
-  const { salvo } = await searchParams;
-  const aviso = salvo && SALVO[salvo] ? <div className="alert ok toast" role="status">{SALVO[salvo]}</div> : null;
+  const sp = await searchParams;
+  const gestor = s.perfil === "gestor";
+  const [todas, usuarios, monitor, pendSyonet] = await Promise.all([
+    getAtividades().catch(() => [] as Atividade[]),
+    getUsuarios().catch(() => []),
+    gestor ? monitoramento().catch(() => []) : Promise.resolve([]),
+    s.perfil === "vendedor" ? leadsVisiveis(s).then((l) => l.filter(semSyonet)).catch(() => []) : Promise.resolve([]),
+  ]);
+  const nomes = new Map(usuarios.map((u) => [u.id, u.nome]));
+  const agora = agoraSP();
 
-  if (s.perfil === "vendedor") {
-    const [pend, todas] = await Promise.all([(await leadsVisiveis(s).catch(() => [])).filter(semSyonet), getAtividades().catch(() => [])]);
-    const minhas = todas.filter((a) => a.responsavelId === s.uid).map(semLinha);
-    const abertas = minhas.filter((a) => a.aberta).length;
-    return (
-      <>
-        <div className="page-head">
-          <div><div className="eyebrow">Suas pendências</div><h1>Tarefas <span className="count-pill">{pend.length + abertas}</span></h1><p>Suas atividades e os leads que ainda não foram cadastrados no Syonet.</p></div>
-          <div className="head-actions">
-            <AtualizarDados />
-            <Link href="/atividades/nova" className="btn"><Icon name="plus" size={16} /> Nova atividade</Link>
-          </div>
-        </div>
-        {aviso}
-        <section style={{ marginBottom: 24 }}>
-          <div className="panel-head"><h2>Minhas atividades</h2><span className="hint">{abertas} aberta(s)</span></div>
-          <AtividadesView atividades={minhas} motos={{}} rapido={false} vazio="Use “Nova atividade” para lembrar de algo — ligada a uma moto, a um lead ou de rotina." />
-        </section>
-        <div className="panel-head"><h2>Leads sem Syonet</h2></div>
-        <PendenciasSyonet itens={pend.map((l) => ({ id: l.id, cliente: l.cliente, desejo: [l.marca, l.modelo].filter(Boolean).join(" ") || l.tipo, criadoEm: l.criadoEm, status: l.status }))} />
-      </>
-    );
-  }
+  // filtro do gestor por pessoa: "" = todas · "gestao" = sem ninguém marcado · <id> = de uma pessoa
+  const filtro = gestor ? sp.p ?? "" : "";
+  const visiveis = todas.filter((a) => visivelPara(a, s)).filter((a) =>
+    !filtro ? true : filtro === "gestao" ? !a.pessoas.length : a.pessoas.includes(filtro) || a.criadoPorId === filtro);
 
-  const [atividades, est, monitor] = await Promise.all([getAtividades(), getEstoque().catch(() => ({ motos: [] })), monitoramento().catch(() => [])]);
-  const motos = Object.fromEntries(est.motos.map((m) => [m.placa, m.modelo]));
-  const vm: AtvVM[] = atividades.filter((a) => !ehDoVendedor(a)).map(semLinha);
-  const daEquipe: AtvVM[] = atividades.filter(ehDoVendedor).map(semLinha);
-  const abertas = vm.filter((a) => a.aberta).length;
+  const vm: AtvVM[] = visiveis.map((a) => ({
+    id: a.id, descricao: a.descricao, status: a.etapa, urgente: a.urgente, data: a.prazoData, hora: a.prazoHora,
+    atrasada: estaAtrasada(a, agora), pessoas: a.pessoas.map((id, k) => nomes.get(id) ?? a.responsavel.split(",").at(k)?.trim() ?? "?"),
+    placa: a.placa, modelo: a.modelo, lead: a.lead, cliente: a.cliente, observacao: a.observacao, periodicidade: a.periodicidade,
+    origem: a.origem, ref: a.ref, resolvidaEm: a.resolvidaEm, criadoPor: a.criadoPor, podeExcluir: podeExcluir(a, s),
+  }));
+  const abertas = vm.filter((a) => a.status !== "FINALIZADO").length;
+  const atrasadas = vm.filter((a) => a.atrasada).length;
+  const pessoasFiltro = usuarios.filter((u) => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)).map((u) => ({ id: u.id, nome: u.nome, perfil: u.perfil }));
+  const visao = sp.v === "kanban" ? "kanban" : "lista";
+
   return (
     <>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Gestor</div>
-          <h1>Atividades <span className="count-pill">{abertas + monitor.length}</span></h1>
-          <p>Cobranças da equipe, pendências da inspeção 360 e tarefas avulsas.</p>
+          <div className="eyebrow">{gestor ? "Gestor" : "Suas tarefas"}</div>
+          <h1>Atividades <span className="count-pill">{abertas}</span></h1>
+          <p>{atrasadas ? <><b className="txt-bad">{atrasadas} atrasada{atrasadas > 1 ? "s" : ""}</b> · </> : null}{abertas} em aberto{gestor ? " · use o filtro para ver cada pessoa" : ""}</p>
         </div>
-        <AtualizarDados />
+        <div className="head-actions">
+          <AtualizarDados />
+          <Link href={`/atividades/nova${filtro && filtro !== "gestao" ? `?p=${encodeURIComponent(filtro)}` : ""}`} className="btn"><Icon name="plus" size={16} /> Nova atividade</Link>
+        </div>
       </div>
-      {aviso}
-      <section style={{ marginBottom: 20 }}>
-        <div className="panel-head"><h2>Cobrar a equipe</h2><span className="hint">leads sem Syonet · “Cobrei” some por 24 h</span></div>
-        <CobrarEquipe itens={monitor} />
-      </section>
-      <div className="panel-head"><h2>Preparação e tarefas</h2></div>
-      <AtividadesView atividades={vm} motos={motos} />
-      {daEquipe.some((a) => a.aberta) && (
-        <details className="sec" style={{ marginTop: 24 }}>
-          <summary className="strong" style={{ cursor: "pointer" }}>Atividades dos vendedores <span className="count-pill">{daEquipe.filter((a) => a.aberta).length}</span></summary>
-          <div style={{ marginTop: 12 }}><AtividadesView atividades={daEquipe} motos={motos} rapido={false} mostrarDono /></div>
-        </details>
+      {sp.salvo && SALVO[sp.salvo] && <div className="alert ok toast" role="status">{SALVO[sp.salvo]}</div>}
+
+      {gestor && monitor.length > 0 && (
+        <section style={{ marginBottom: 20 }}>
+          <div className="panel-head"><h2>Cobrar a equipe</h2><span className="hint">leads sem Syonet · “Cobrei” some por 24 h</span></div>
+          <CobrarEquipe itens={monitor} />
+        </section>
+      )}
+
+      <AtividadesView atividades={vm} visao={visao} filtro={filtro} pessoas={gestor ? pessoasFiltro : []} hoje={agora.data} />
+
+      {s.perfil === "vendedor" && (
+        <section style={{ marginTop: 28 }}>
+          <div className="panel-head"><h2>Leads sem Syonet <span className="count-pill">{pendSyonet.length}</span></h2></div>
+          <PendenciasSyonet itens={pendSyonet.map((l) => ({ id: l.id, cliente: l.cliente, desejo: [l.marca, l.modelo].filter(Boolean).join(" ") || l.tipo, criadoEm: l.criadoEm, status: l.status }))} />
+        </section>
       )}
     </>
   );

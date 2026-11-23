@@ -5,7 +5,7 @@ import { NavProgress } from "@/components/NavProgress";
 import { Icon } from "@/components/Icon";
 import { Suspense } from "react";
 import { PERFIS, podeAcessar, type Perfil } from "@/lib/auth";
-import { getAtividades } from "@/lib/atividades";
+import { getAtividades, visivelPara } from "@/lib/atividades";
 import { monitoramento } from "@/lib/cobrancas";
 import { leadsVisiveis, semSyonet } from "@/lib/leads";
 import { sessaoAtual } from "@/lib/sessao";
@@ -30,12 +30,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!sessao) redirect("/login?sair=1");
   const perfil = sessao.perfil;
   aquecer(perfil);
+  // contador do menu: atividades em aberto de quem está logado (+ cobranças/Syonet)
+  const atvs = await getAtividades().catch(() => []);
+  const minhasAbertas = atvs.filter((a) => a.aberta && (perfil === "gestor" ? !a.pessoas.length : visivelPara(a, sessao))).length;
   const abertas =
     perfil === "gestor"
-      ? (await getAtividades().catch(() => [])).filter((a) => a.aberta && a.origem !== "Vendedor").length + (await monitoramento().catch(() => [])).length
+      ? minhasAbertas + (await monitoramento().catch(() => [])).length
       : perfil === "vendedor"
-        ? (await leadsVisiveis(sessao).catch(() => [])).filter(semSyonet).length + (await getAtividades().catch(() => [])).filter((a) => a.aberta && a.responsavelId === sessao.uid).length
-        : 0;
+        ? (await leadsVisiveis(sessao).catch(() => [])).filter(semSyonet).length + minhasAbertas
+        : minhasAbertas;
   const itens: NavItem[] = ITENS.filter((i) => podeAcessar(perfil, i.href) && !i.ocultoPara?.includes(perfil)).map(({ soDesktopPara, menuPara, ocultoPara: _o, ...i }) => ({
     ...i,
     label: i.href === "/meta" && perfil === "gestor" ? "Metas" : i.label,

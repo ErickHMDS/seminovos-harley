@@ -97,7 +97,7 @@ export default async function FichaMotoPage({ searchParams }: { searchParams: Pr
             </section>
           )}
           {s.perfil !== "preparador" && (
-            <AtividadesLigadas atividades={(await atividadesDaPlaca(m.placa).catch(() => [])).filter((a) => s.perfil === "gestor" || a.responsavelId === s.uid || a.origem !== "Vendedor")}
+            <AtividadesLigadas atividades={(await atividadesDaPlaca(m.placa).catch(() => [])).filter((a) => s.perfil === "gestor" || a.pessoas.includes(s.uid) || a.criadoPorId === s.uid || !a.pessoas.length)}
               novoHref={`/atividades/nova?${new URLSearchParams({ placa: m.placa, volta: `/estoque/ver?placa=${m.placa}` })}`} />
           )}
         </div>
