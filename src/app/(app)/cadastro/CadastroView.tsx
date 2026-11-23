@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { criarPessoa, editarPessoa, novaSenha, salvarCoordenadores, salvarPastaDrive, criarPastasAction, salvarPonteDrive, sugerirSenha, type CadState } from "./actions";
 
-export type PessoaVM = { id: string; nome: string; perfil: "gestor" | "vendedor" | "preparador"; vendedor: string; telefone: string; ativo: boolean; atualizadoEm: string };
+export type PessoaVM = { id: string; nome: string; perfil: "gestor" | "vendedor" | "preparador"; vendedor: string; telefone: string; ativo: boolean; atualizadoEm: string; meta?: number };
 export type VendedorVM = { nome: string; curto: string; pos: number; vendas: number; objetivo: number | null };
 
 const PERFIL_LABEL = { gestor: "Gestor", vendedor: "Vendedor", preparador: "Preparador" } as const;
@@ -52,6 +52,9 @@ function CamposPessoa({ p, vendedores, perfilInicial }: { p?: Partial<PessoaVM>;
             {[...new Set([...(p?.vendedor ? [p.vendedor] : []), ...vendedores.map((v) => v.nome)])].map((n) => <option key={n} value={n}>{titulo(n)}</option>)}
           </select>
         </div>
+      )}
+      {perfil === "vendedor" && (
+        <div className="field"><label>Meta mensal (vendas)</label><input name="meta" type="number" min={1} max={999} className="input" defaultValue={p?.meta ?? 10} required /></div>
       )}
       <div className="field"><label>WhatsApp</label><input name="telefone" className="input" inputMode="tel" defaultValue={p?.telefone} placeholder="41 99999-9999" /></div>
     </div>

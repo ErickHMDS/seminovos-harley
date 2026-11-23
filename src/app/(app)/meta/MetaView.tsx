@@ -95,6 +95,7 @@ export function MetaView({ d }: { d: MetaVM }) {
 
   return (
     <div className="meta">
+      <div className="meta-topo">
       <section className={`meta-hero ${bateu ? "bateu" : noRitmo ? "ritmo" : "acelera"}`}>
         <Anel valor={d.vendas} meta={d.meta} />
         <div className="meta-hero-txt">
@@ -113,8 +114,17 @@ export function MetaView({ d }: { d: MetaVM }) {
           <div className="meta-legenda"><span>mês {pct(d.dias.passados / Math.max(1, d.dias.total))} passado</span>{d.meta ? <span>meta {pct(Math.min(1, d.vendas / d.meta))} feita</span> : null}</div>
         </div>
       </section>
+        <section className="meta-card meta-ofertas">
+          <div className="meta-card-head"><h2>Motos para oferecer</h2><span className="faint" style={{ fontSize: 12 }}>paradas há mais tempo</span></div>
+          {d.paradas.length === 0 ? <p className="faint" style={{ margin: 0, fontSize: 13 }}>Nenhuma moto anunciada parada há mais de 60 dias.</p> : (
+            <ul className="simple-list">
+              {d.paradas.slice(0, 4).map((m) => <li key={m.placa}><Link href={`/estoque/ver?placa=${encodeURIComponent(m.placa)}`} className="simple-row"><span className="badge bad">{m.dias}d</span><span className="simple-main">{m.modelo}<small>{m.placa} · {m.cidade}</small></span><span className="simple-side strong">{m.preco != null ? brl.format(m.preco) : ""}</span></Link></li>)}
+            </ul>
+          )}
+        </section>
+      </div>
 
-      <div className="meta-grid">
+      <div className="meta-grid meta-3">
         <Plano tarefas={tarefas} hoje={d.hoje} />
 
         <section className="meta-card">
@@ -148,6 +158,9 @@ export function MetaView({ d }: { d: MetaVM }) {
             );
           })}
         </section>
+      </div>
+
+      <div className="meta-grid meta-3">
 
         <section className="meta-card">
           <div className="meta-card-head"><h2>Seus meses</h2>{d.melhorMes > 0 && <span className="faint" style={{ fontSize: 12 }}>recorde: {d.melhorMes}</span>}</div>
@@ -179,22 +192,14 @@ export function MetaView({ d }: { d: MetaVM }) {
           )}
         </section>
 
-        {(d.aFaturar.length > 0 || d.paradas.length > 0) && (
-          <section className="meta-card">
-            {d.aFaturar.length > 0 && (<>
-              <div className="meta-card-head"><h2>A faturar</h2><span className="badge warn">{d.aFaturar.length}</span></div>
-              <ul className="simple-list">
-                {d.aFaturar.map((v) => <li key={v.aba + v.linha}><Link className="simple-row" href={`/vendas/editar?${new URLSearchParams({ aba: v.aba, linha: String(v.linha) })}`}><span className="simple-main">{v.veiculo}<small>{v.cliente}</small></span><span className="link-more">atualizar →</span></Link></li>)}
-              </ul>
-            </>)}
-            {d.paradas.length > 0 && (<>
-              <div className="meta-card-head" style={{ marginTop: d.aFaturar.length ? 14 : 0 }}><h2>Motos para oferecer</h2><span className="faint" style={{ fontSize: 12 }}>paradas há mais tempo</span></div>
-              <ul className="simple-list">
-                {d.paradas.map((m) => <li key={m.placa}><Link href={`/estoque/ver?placa=${encodeURIComponent(m.placa)}`} className="simple-row"><span className="badge bad">{m.dias}d</span><span className="simple-main">{m.modelo}<small>{m.placa} · {m.cidade}</small></span><span className="simple-side strong">{m.preco != null ? brl.format(m.preco) : ""}</span></Link></li>)}
-              </ul>
-            </>)}
-          </section>
-        )}
+        <section className="meta-card">
+          <div className="meta-card-head"><h2>A faturar</h2><span className={`badge ${d.aFaturar.length ? "warn" : "ok"}`}>{d.aFaturar.length}</span></div>
+          {d.aFaturar.length === 0 ? <p className="faint" style={{ margin: 0, fontSize: 13 }}>Todas as suas vendas do mês estão faturadas.</p> : (
+            <ul className="simple-list">
+              {d.aFaturar.map((v) => <li key={v.aba + v.linha}><Link className="simple-row" href={`/vendas/editar?${new URLSearchParams({ aba: v.aba, linha: String(v.linha) })}`}><span className="simple-main">{v.veiculo}<small>{v.cliente}</small></span><span className="link-more">atualizar →</span></Link></li>)}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );

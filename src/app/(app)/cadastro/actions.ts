@@ -15,7 +15,8 @@ const falha = (e: unknown): CadState => {
 function ler(form: FormData) {
   const g = (k: string) => String(form.get(k) ?? "").trim();
   const perfil = (g("perfil") in PERFIS ? g("perfil") : "vendedor") as Perfil;
-  return { nome: g("nome"), perfil, vendedor: perfil === "vendedor" ? g("vendedor") : "", telefone: g("telefone").replace(/[^\d+]/g, "") };
+  const meta = Math.round(Number(g("meta").replace(",", ".")));
+  return { nome: g("nome"), perfil, vendedor: perfil === "vendedor" ? g("vendedor") : "", telefone: g("telefone").replace(/[^\d+]/g, ""), meta: meta > 0 && meta < 1000 ? meta : 10 };
 }
 
 export async function criarPessoa(_: CadState, form: FormData): Promise<CadState> {

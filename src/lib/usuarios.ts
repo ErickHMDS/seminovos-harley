@@ -5,17 +5,19 @@ import { cached, invalidate } from "./cache";
 import { config } from "./config";
 import { PERFIS, iguais, senhaDoPerfil, type Perfil } from "./auth";
 import { TZ, clean } from "./parse";
-import { colLetra, indiceCabecalho, valorSeguro } from "./planilha";
+import { colLetra, garantirColunas, indiceCabecalho, valorSeguro } from "./planilha";
 
 /**
  * Equipe com acesso ao app (aba "Usuários App" da planilha de estoque).
  * A senha nunca é gravada em texto: só o hash (scrypt + sal).
  */
-const CABECALHO = ["ID", "Nome", "Perfil", "Vendedor na Planilha", "Telefone", "Ativo", "Senha (hash)", "Versão", "Criado Em", "Atualizado Em"];
+const CABECALHO = ["ID", "Nome", "Perfil", "Vendedor na Planilha", "Telefone", "Ativo", "Senha (hash)", "Versão", "Criado Em", "Atualizado Em", "Meta"];
+export const META_PADRAO = 10;
 
 export type Usuario = {
   id: string; nome: string; perfil: Perfil; vendedor: string; telefone: string; ativo: boolean;
   hash: string; versao: number; criadoEm: string; atualizadoEm: string; linha: number;
+  meta: number; // meta mensal de vendas (vendedor); padrão 10
 };
 
 const agora = () => new Date().toLocaleString("pt-BR", { timeZone: TZ });
@@ -52,6 +54,7 @@ async function load(): Promise<Usuario[]> {
         vendedor: g(r, "Vendedor na Planilha").toUpperCase(), telefone: g(r, "Telefone"),
         ativo: !/^(n|nao|não|false|0|inativo)$/i.test(g(r, "Ativo")), hash: g(r, "Senha (hash)"),
         versao: Number(g(r, "Versão")) || 0, criadoEm: g(r, "Criado Em"), atualizadoEm: g(r, "Atualizado Em"), linha: i + 2,
+        meta: Number(g(r, "Meta").replace(",", ".")) > 0 ? Number(g(r, "Meta").replace(",", ".")) : META_PADRAO,
       };
     })
     .filter((u) => u.id && u.nome);
@@ -68,6 +71,7 @@ async function garantirAba() {
     await updateValues(config.appId, range(config.usuariosAba, "A1"), [CABECALHO]);
     return CABECALHO;
   }
+  if (!header.some((h) => clean(h).toUpperCase() === "META")) return garantirColunas(config.appId, config.usuariosAba, ["Meta"]);
   return header;
 }
 
@@ -110,7 +114,7 @@ function validarSenha(senha: string) {
   if (senha.trim().length < 4) throw new Error("A senha precisa ter pelo menos 4 caracteres.");
 }
 
-export type NovoUsuario = { nome: string; perfil: Perfil; vendedor: string; telefone: string };
+export type NovoUsuario = { nome: string; perfil: Perfil; vendedor: string; telefone: string; meta?: number };
 
 export async function criarUsuario(dados: NovoUsuario, senha: string): Promise<Usuario> {
   validarSenha(senha);
@@ -122,6 +126,7 @@ export async function criarUsuario(dados: NovoUsuario, senha: string): Promise<U
   const valores: Record<string, string | number> = {
     ID: id, Nome: dados.nome, Perfil: dados.perfil, "Vendedor na Planilha": dados.vendedor.toUpperCase(), Telefone: dados.telefone,
     Ativo: "SIM", "Senha (hash)": hashSenha(senha.trim()), "Versão": 1, "Criado Em": agora(), "Atualizado Em": agora(),
+    Meta: dados.perfil === "vendedor" ? dados.meta ?? META_PADRAO : "",
   };
   const linha = header.map(() => "" as string | number);
   for (const [k, v] of Object.entries(valores)) if (col(k) >= 0) linha[col(k)] = typeof v === "number" ? v : valorSeguro(v);
@@ -131,7 +136,7 @@ export async function criarUsuario(dados: NovoUsuario, senha: string): Promise<U
 }
 
 async function gravar(u: Usuario, campos: Record<string, string | number>) {
-  const { header } = await lerAba();
+  const header = await garantirAba();
   const col = indiceCabecalho(header);
   const data = Object.entries({ ...campos, "Atualizado Em": agora() })
     .filter(([k]) => col(k) >= 0)
@@ -152,7 +157,7 @@ export async function atualizarUsuario(id: string, dados: NovoUsuario & { ativo:
   const mudouAcesso = u.perfil !== dados.perfil || u.ativo !== dados.ativo;
   await gravar(u, {
     Nome: dados.nome, Perfil: dados.perfil, "Vendedor na Planilha": dados.vendedor.toUpperCase(), Telefone: dados.telefone,
-    Ativo: dados.ativo ? "SIM" : "NÃO", ...(mudouAcesso ? { "Versão": u.versao + 1 } : {}), // muda perfil/ativo -> derruba sessões
+    Ativo: dados.ativo ? "SIM" : "NÃO", ...(dados.perfil === "vendedor" && dados.meta ? { Meta: dados.meta } : {}), ...(mudouAcesso ? { "Versão": u.versao + 1 } : {}), // muda perfil/ativo -> derruba sessões
   });
 }
 

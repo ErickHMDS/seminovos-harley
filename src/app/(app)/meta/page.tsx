@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { objetivosVigentes } from "@/lib/metas";
 import { Icon } from "@/components/Icon";
 import { VendasLista } from "@/components/VendasLista";
 import { getEstoque } from "@/lib/estoque";
@@ -34,9 +35,10 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
   const s = await exigirSessao("/meta");
   const { v, salvo } = await searchParams;
   const base = await getVendas();
+  const objs = await objetivosVigentes(base);
   const mes = base.meses[0];
   const doMes = base.vendas.filter((x) => x.mes === mes);
-  const rank = ranking(doMes, base.objetivos, true);
+  const rank = ranking(doMes, objs, true);
   const nomes = rank.map((r) => r.vendedor);
   const alvo = s.perfil === "gestor" ? (v && nomes.includes(v) ? v : nomes[0]) : s.vendedor;
 
@@ -49,7 +51,7 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
     );
   }
 
-  const eu = rank.find((r) => r.vendedor === alvo) ?? { vendedor: alvo, nome: shortName(alvo), vendas: 0, faturadas: 0, pendentes: 0, fin: 0, ge: 0, usado: 0, seguro: 0, harley: 0, triumph: 0, objetivo: base.objetivos[alvo] ?? null, atingimento: null };
+  const eu = rank.find((r) => r.vendedor === alvo) ?? { vendedor: alvo, nome: shortName(alvo), vendas: 0, faturadas: 0, pendentes: 0, fin: 0, ge: 0, usado: 0, seguro: 0, harley: 0, triumph: 0, objetivo: objs[alvo] ?? null, atingimento: null };
   const pos = rank.findIndex((r) => r.vendedor === alvo) + 1 || rank.length + 1;
   const acima = pos > 1 ? rank[pos - 2] : null;
   const abaixo = rank[pos] ?? null;

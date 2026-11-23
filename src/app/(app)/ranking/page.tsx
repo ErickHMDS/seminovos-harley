@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { objetivosVigentes } from "@/lib/metas";
 import { AtualizarDados } from "@/components/AtualizarDados";
 import { Fab } from "@/components/Fab";
 import { Icon } from "@/components/Icon";
@@ -23,6 +24,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
   const perfil = await exigirPerfil("/ranking");
   const sp = await searchParams;
   const base = await getVendas();
+  const objs = await objetivosVigentes(base);
   const atual = base.meses[0];
   const anos = [...new Set(base.meses.map((m) => m.slice(0, 4)))];
 
@@ -32,9 +34,9 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
 
   const doPeriodo = base.vendas.filter((v) => (ehAno ? v.mes.startsWith(sel!.slice(4)) : v.mes === sel) && (!loja || v.loja.includes(loja)));
   const usaMeta = sel === atual && !loja;
-  const linhas = ranking(doPeriodo, usaMeta ? base.objetivos : {}, usaMeta);
+  const linhas = ranking(doPeriodo, usaMeta ? objs : {}, usaMeta);
   const r = resumo(doPeriodo);
-  const metaTotal = usaMeta ? Object.values(base.objetivos).reduce((a, b) => a + b, 0) : null;
+  const metaTotal = usaMeta ? Object.values(objs).reduce((a, b) => a + b, 0) : null;
   const top = linhas.slice(0, 3);
   const titulo = !sel ? "—" : ehAno ? `Ano ${sel.slice(4)}` : monthLabel(sel);
   const q = (p: Record<string, string>) => `?${new URLSearchParams({ ...(sel ? { mes: sel } : {}), ...(loja ? { loja } : {}), ...p })}`;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { objetivosVigentes } from "@/lib/metas";
 import { AtualizarDados } from "@/components/AtualizarDados";
 import { Bars, Columns, Kpi, Progress } from "@/components/ui";
 import { getAtividades } from "@/lib/atividades";
@@ -13,13 +14,14 @@ export const dynamic = "force-dynamic";
 export default async function GestorPage() {
   await exigirPerfil("/gestor");
   const [base, { motos }, prep, atividades] = await Promise.all([getVendas(), getEstoque(), getPreparacao().catch(() => null), getAtividades().catch(() => [])]);
+  const objs = await objetivosVigentes(base);
   const tarefas = atividades.filter((a) => a.aberta);
 
   const mes = base.meses[0];
   const doMes = base.vendas.filter((v) => v.mes === mes);
   const r = resumo(doMes);
-  const rank = ranking(doMes, base.objetivos, true);
-  const metaTotal = Object.values(base.objetivos).reduce((a, b) => a + b, 0) || null;
+  const rank = ranking(doMes, objs, true);
+  const metaTotal = Object.values(objs).reduce((a, b) => a + b, 0) || null;
   const emAndamento = doMes.filter((v) => v.conta && !v.faturada);
 
   // histórico: 12 meses corridos até o mês atual (mês sem aba aparece como 0)
