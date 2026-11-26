@@ -15,7 +15,7 @@ export default async function EditarVendaPage({ searchParams }: { searchParams: 
   const { aba = "", linha = "" } = await searchParams;
   const [base, vendedores, est] = await Promise.all([getVendas(), listaVendedores(), getEstoque().catch(() => ({ motos: [] }))]);
   const v = base.vendas.find((x) => x.aba === aba && x.linha === Number(linha));
-  if (!v || (fixo && v.vendedor !== fixo)) notFound();
+  if (!v || v.historico || (fixo && v.vendedor !== fixo)) notFound();
   const vm: VendaVM = {
     aba: v.aba, linha: v.linha, mes: v.mes, data: fmt.date(v.data ? new Date(v.data) : null).replace("—", ""), vendedor: v.vendedor, pedido: v.pedido,
     loja: v.loja, situacao: v.situacao, cliente: v.cliente, veiculo: v.veiculo, placa: v.placa, ge: v.ge, fin: v.fin, usado: v.usado,

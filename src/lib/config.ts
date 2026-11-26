@@ -21,6 +21,7 @@ export const config = {
   fotosAba: process.env.FOTOS_ABA?.trim() || "Fotos",
   vendasAba: process.env.VENDAS_ABA?.trim() || "VENDAS", // aba única com todas as vendas do ano
   equipeAba: process.env.EQUIPE_ABA?.trim() || "EQUIPE", // vendedores, objetivo do mês e ativo
+  historicoVendasAba: process.env.HISTORICO_VENDAS_ABA?.trim() || "Histórico Vendas", // planilha do app: vendas de anos anteriores (só leitura)
   painelAba: process.env.PAINEL_ABA?.trim() || "PAINEL GERAL",
   coordenadorEmail: process.env.COORDENADOR_EMAIL?.trim() ?? "",
   /** segundos que os dados lidos ficam em memória antes de reler a planilha */

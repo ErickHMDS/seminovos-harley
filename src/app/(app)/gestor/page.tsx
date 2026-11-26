@@ -22,7 +22,7 @@ export default async function GestorPage() {
   const r = resumo(doMes);
   const rank = ranking(doMes, objs, true);
   const metaTotal = Object.values(objs).reduce((a, b) => a + b, 0) || null;
-  const emAndamento = doMes.filter((v) => v.conta && !v.faturada);
+  const emAndamento = doMes.filter((v) => v.conta && !v.faturada && !v.historico);
 
   // histórico: 12 meses corridos até o mês atual (mês sem aba aparece como 0)
   const historico = mes

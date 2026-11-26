@@ -90,7 +90,7 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
   const oportunidades = meusLeads.filter((l) => l.matches.length);
   const retornos = meusLeads.filter((l) => l.retornoHoje);
   const minhasDoMes = doMes.filter((x) => x.vendedor === alvo).sort((a, b) => (b.data ?? "").localeCompare(a.data ?? ""));
-  const aFaturar = doMes.filter((x) => x.vendedor === alvo && x.conta && !x.faturada);
+  const aFaturar = doMes.filter((x) => x.vendedor === alvo && x.conta && !x.faturada && !x.historico);
   const { motos } = await getEstoque().catch(() => ({ motos: [] as Awaited<ReturnType<typeof getEstoque>>["motos"] }));
   const paradas = motos.filter((m) => (m.dias ?? 0) > 60 && m.anunciada).slice(0, 4);
 

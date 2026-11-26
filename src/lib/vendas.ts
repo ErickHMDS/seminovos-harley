@@ -1,5 +1,5 @@
 import "server-only";
-import { batchGet, batchUpdateValues, getValues, range } from "./google";
+import { batchGet, batchUpdateValues, getValues, listSheets, range } from "./google";
 import { cached, invalidate } from "./cache";
 import { config } from "./config";
 import { clean, date, hojeISO, monthKey, num, shortName, yesNo } from "./parse";
@@ -46,6 +46,7 @@ export type Venda = {
   prevFaturamento: string;
   dataFaturamento: string;
   observacoes: string;
+  historico?: boolean; // vem da aba de histórico (anos anteriores) — só leitura
 };
 
 export type AbaVendas = { aba: string; mes: string; vendas: number };
@@ -102,32 +103,56 @@ function lerEquipe(rows: string[][]): MembroEquipe[] {
   return out;
 }
 
+/** Vendas de anos anteriores, importadas das abas antigas para a planilha do app (aba "Histórico Vendas"). */
+async function lerHistorico(): Promise<string[][]> {
+  const abas = await listSheets(config.appId);
+  if (!abas.some((a) => a.title === config.historicoVendasAba)) return [];
+  return getValues(config.appId, range(config.historicoVendasAba, "A1:Q"));
+}
+
+function vendaDaLinha(r: string[], idx: Record<Campo, number>, aba: string, linha: number, mesFixo = ""): Venda | null {
+  const g = (c: Campo) => (idx[c] >= 0 ? clean(r[idx[c]] ?? "") : "");
+  if (!(g("vendedor") || g("veiculo") || g("cliente"))) return null;
+  const d = date(g("data"));
+  const vendedor = norm(g("vendedor")) || "SEM VENDEDOR";
+  let situacao = norm(g("situacao")) || "SEM SITUAÇÃO";
+  if (situacao === "CANCELADA") situacao = "CANCELADO";
+  return {
+    id: `${aba}#${linha}`, mes: d ? monthKey(d) : mesFixo, aba, linha,
+    conta: CONTA.has(situacao), data: d ? d.toISOString() : null, vendedor, vendedorCurto: shortName(vendedor),
+    pedido: g("pedido"), loja: norm(g("loja")) || "—", situacao, faturada: situacao === "FATURADO",
+    cliente: g("cliente"), veiculo: g("veiculo"), placa: norm(g("placa")),
+    ge: yesNo(g("ge")), fin: yesNo(g("fin")), usado: yesNo(g("usado")), seguro: yesNo(g("seguro")),
+    prevFaturamento: g("prevFaturamento"), dataFaturamento: g("dataFaturamento"), observacoes: g("observacoes"),
+  };
+}
+
 async function load(): Promise<BaseVendas> {
-  const [{ rows, hi, idx }, [equipeRows]] = await Promise.all([
+  const [{ rows, hi, idx }, [equipeRows], histRows] = await Promise.all([
     lerVendasBruto(),
     batchGet(config.vendasId, [range(config.equipeAba, "A1:C60")]).catch(() => [[]] as string[][][]),
+    lerHistorico().catch((e) => { console.error("[vendas] histórico não lido", e); return [] as string[][]; }),
   ]);
   const equipe = lerEquipe(equipeRows ?? []);
-  const g = (r: string[], c: Campo) => (idx[c] >= 0 ? clean(r[idx[c]] ?? "") : "");
   const vendas: Venda[] = [];
   let semData = 0;
   rows.forEach((r, i) => {
     if (i <= hi) return;
-    if (!(g(r, "vendedor") || g(r, "veiculo") || g(r, "cliente"))) return;
-    const d = date(g(r, "data"));
-    if (!d) semData++;
-    const vendedor = norm(g(r, "vendedor")) || "SEM VENDEDOR";
-    let situacao = norm(g(r, "situacao")) || "SEM SITUAÇÃO";
-    if (situacao === "CANCELADA") situacao = "CANCELADO";
-    vendas.push({
-      id: `${config.vendasAba}#${i + 1}`, mes: d ? monthKey(d) : "", aba: config.vendasAba, linha: i + 1,
-      conta: CONTA.has(situacao), data: d ? d.toISOString() : null, vendedor, vendedorCurto: shortName(vendedor),
-      pedido: g(r, "pedido"), loja: norm(g(r, "loja")) || "—", situacao, faturada: situacao === "FATURADO",
-      cliente: g(r, "cliente"), veiculo: g(r, "veiculo"), placa: norm(g(r, "placa")),
-      ge: yesNo(g(r, "ge")), fin: yesNo(g(r, "fin")), usado: yesNo(g(r, "usado")), seguro: yesNo(g(r, "seguro")),
-      prevFaturamento: g(r, "prevFaturamento"), dataFaturamento: g(r, "dataFaturamento"), observacoes: g(r, "observacoes"),
-    });
+    const v = vendaDaLinha(r, idx, config.vendasAba, i + 1);
+    if (!v) return;
+    if (!v.data) semData++;
+    vendas.push(v);
   });
+  if (histRows.length > 1) {
+    const hidx = indices(histRows[0]);
+    const iMes = histRows[0].findIndex((h) => semAcento(h) === "MES");
+    histRows.forEach((r, i) => {
+      if (i === 0) return;
+      const mes = iMes >= 0 && /^\d{4}-\d{2}$/.test(clean(r[iMes])) ? clean(r[iMes]) : "";
+      const v = vendaDaLinha(r, hidx, config.historicoVendasAba, i + 1, mes);
+      if (v) vendas.push({ ...v, historico: true });
+    });
+  }
 
   // meses: o do calendário (mesmo sem vendas) e os anteriores que têm vendas; mês futuro só aparece quando começar
   const mesAtual = hojeISO().slice(0, 7);
@@ -135,8 +160,8 @@ async function load(): Promise<BaseVendas> {
   const objetivos: Record<string, number> = {};
   for (const m of equipe) if (m.ativo) objetivos[m.nome] = m.objetivo;
   return {
-    vendas: [...vendas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || b.linha - a.linha),
-    abas: meses.map((mes) => ({ aba: config.vendasAba, mes, vendas: vendas.filter((v) => v.mes === mes).length })),
+    vendas: [...vendas].sort((a, b) => b.mes.localeCompare(a.mes) || (b.data ?? "").localeCompare(a.data ?? "") || b.linha - a.linha),
+    abas: meses.map((mes) => ({ aba: vendas.find((v) => v.mes === mes)?.aba ?? config.vendasAba, mes, vendas: vendas.filter((v) => v.mes === mes).length })),
     abasIgnoradas: [],
     objetivos,
     equipe,
@@ -293,7 +318,12 @@ async function conferirLinha(linha: number, original: Original) {
   return { r, idx };
 }
 
-export async function editarVenda(_aba: string, linha: number, original: Original, v: VendaInput) {
+function soAbaVendas(aba: string) {
+  if (aba !== config.vendasAba) throw new Error("Vendas do histórico (anos anteriores) são só para consulta.");
+}
+
+export async function editarVenda(aba: string, linha: number, original: Original, v: VendaInput) {
+  soAbaVendas(aba);
   invalidate("vendas");
   await validar(v);
   const { r, idx } = await conferirLinha(linha, original);
@@ -302,7 +332,8 @@ export async function editarVenda(_aba: string, linha: number, original: Origina
 }
 
 /** Instrução da planilha: venda desfeita não se apaga — a SITUAÇÃO vira CANCELADO. */
-export async function excluirVenda(_aba: string, linha: number, original: Original) {
+export async function excluirVenda(aba: string, linha: number, original: Original) {
+  soAbaVendas(aba);
   const { idx } = await conferirLinha(linha, original);
   await batchUpdateValues(config.vendasId, [{ range: range(config.vendasAba, `${colLetra(idx.situacao)}${linha}`), values: [["CANCELADO"]] }]);
   invalidate("vendas");

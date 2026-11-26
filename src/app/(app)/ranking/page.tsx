@@ -30,6 +30,9 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
 
   const sel = sp.mes && (base.meses.includes(sp.mes) || /^ano-\d{4}$/.test(sp.mes)) ? sp.mes : atual;
   const ehAno = sel?.startsWith("ano-");
+  const anoSel = ehAno ? sel!.slice(4) : (sel ?? "").slice(0, 4);
+  // ano atual: os últimos 8 meses; ano anterior (histórico): os meses daquele ano
+  const chipsMeses = anoSel === (atual ?? "").slice(0, 4) ? base.meses.slice(0, 8) : base.meses.filter((m) => m.startsWith(anoSel));
   const loja = LOJAS.some((l) => l.id === sp.loja) ? sp.loja ?? "" : "";
 
   const doPeriodo = base.vendas.filter((v) => (ehAno ? v.mes.startsWith(sel!.slice(4)) : v.mes === sel) && (!loja || v.loja.includes(loja)));
@@ -60,7 +63,7 @@ export default async function RankingPage({ searchParams }: { searchParams: Prom
 
       <div className="filters">
         <div className="chips scroll">
-          {base.meses.slice(0, 8).map((m) => (
+          {chipsMeses.map((m) => (
             <Link key={m} href={q({ mes: m })} className={`chip ${m === sel ? "active" : ""}`} scroll={false}>{monthLabel(m, true)}</Link>
           ))}
           {anos.map((a) => (
