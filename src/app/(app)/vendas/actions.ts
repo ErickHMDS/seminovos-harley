@@ -16,7 +16,8 @@ function ler(form: FormData): VendaInput {
     data: isoParaBR(g("data")), vendedor: g("vendedor"), pedido: g("pedido"), loja: g("loja"), situacao: g("situacao"),
     cliente: g("cliente"), veiculo: g("veiculo"), placa: g("placa").toUpperCase().replace(/[^A-Z0-9]/g, ""),
     ge: form.get("ge") === "on", fin: form.get("fin") === "on", usado: form.get("usado") === "on",
-    seguro: g("seguro"), prevFaturamento: g("prevFaturamento"), observacoes: g("observacoes"),
+    seguro: form.get("seguro") === "on", prevFaturamento: isoParaBR(g("prevFaturamento")),
+    dataFaturamento: isoParaBR(g("dataFaturamento")), observacoes: g("observacoes"),
   };
 }
 
@@ -56,7 +57,7 @@ export async function salvarVenda(_: VendaState, form: FormData): Promise<VendaS
 
 export async function apagarVenda(aba: string, linha: number, original: { vendedor: string; veiculo: string; pedido: string }, mes: string): Promise<VendaState> {
   const perfil = await exigirPerfil("/vendas");
-  if (perfil !== "gestor") return { erro: "Só o gestor pode excluir lançamentos." };
+  if (perfil !== "gestor") return { erro: "Só o gestor pode cancelar lançamentos." };
   try { await excluirVenda(aba, linha, original); } catch (e) { return falha(e); }
-  return { destino: `/ranking?mes=${mes}&salvo=excluida`, n: Date.now() };
+  return { destino: `/ranking?mes=${mes}&salvo=cancelada`, n: Date.now() };
 }

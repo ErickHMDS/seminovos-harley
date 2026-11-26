@@ -1,25 +1,34 @@
 import "server-only";
-import { batchClear, batchGet, batchUpdateValues, getFormulas, listSheets, range } from "./google";
+import { batchGet, batchUpdateValues, getValues, range } from "./google";
 import { cached, invalidate } from "./cache";
 import { config } from "./config";
 import { clean, date, hojeISO, monthKey, num, shortName, yesNo } from "./parse";
-import { batchUpdateSheet, colLetra, colunasComFormula, indiceCabecalho, reqCopiarFormulas, valorSeguro } from "./planilha";
+import { colLetra, valorSeguro } from "./planilha";
 
-/** Situações aceitas. As 3 primeiras são contadas como venda pelo PAINEL GERAL (colunas O..S). */
+/**
+ * Planilha de vendas (MOTOS 2026) no formato novo:
+ * - aba VENDAS: todas as vendas do ano, uma linha por venda (sem fórmulas), colunas A..O;
+ * - aba EQUIPE: vendedor, objetivo do mês e ativo (SIM/NÃO) — fonte das metas e dos nomes;
+ * - aba PAINEL GERAL: fórmulas que filtram o mês pela célula L3 (lida pela central do regional).
+ * O app não cria abas nem mexe nas fórmulas; só grava linhas na aba VENDAS, metas na EQUIPE
+ * e, na virada do mês, a data de referência em PAINEL GERAL!L3 (o passo que antes era manual).
+ */
+
+/** Situações da lista da planilha. Contam como venda: FATURADO, ESTOQUE e TRANSFERENCIA. */
 export const SITUACOES = [
   { id: "ESTOQUE", label: "Vendida · aguardando faturar", conta: true },
   { id: "TRANSFERENCIA", label: "Transferência", conta: true },
   { id: "FATURADO", label: "Faturado", conta: true },
-  { id: "CANCELADA", label: "Cancelada (não conta)", conta: false },
+  { id: "CANCELADO", label: "Cancelado (não conta)", conta: false },
 ] as const;
 const CONTA = new Set(["FATURADO", "ESTOQUE", "TRANSFERENCIA"]);
 
 export type Venda = {
   id: string;
-  mes: string; // "2026-11" — mês de referência (aba onde foi lançada)
+  mes: string; // "2026-11" — mês da DATA DA VENDA ("" se a linha não tem data)
   aba: string;
   linha: number; // linha na planilha (1-based)
-  conta: boolean; // entra na contagem de vendas (mesma regra do PAINEL GERAL)
+  conta: boolean; // entra na contagem (mesma regra do PAINEL GERAL)
   data: string | null; // ISO
   vendedor: string;
   vendedorCurto: string;
@@ -32,141 +41,106 @@ export type Venda = {
   placa: string;
   ge: boolean;
   fin: boolean;
-  usado: boolean;
-  seguro: string;
+  usado: boolean; // TRADE-IN
+  seguro: boolean;
   prevFaturamento: string;
+  dataFaturamento: string;
   observacoes: string;
 };
 
 export type AbaVendas = { aba: string; mes: string; vendas: number };
+export type MembroEquipe = { nome: string; objetivo: number; ativo: boolean; linha: number };
 
 export type BaseVendas = {
   vendas: Venda[];
-  abas: AbaVendas[];
+  abas: AbaVendas[]; // um item por mês (todos na aba VENDAS) — mantido por compatibilidade
   abasIgnoradas: { aba: string; motivo: string }[];
-  objetivos: Record<string, number>; // vendedor (normalizado) -> objetivo mensal
-  meses: string[]; // ordenados do mais recente para o mais antigo
+  objetivos: Record<string, number>; // vendedor ativo da EQUIPE -> objetivo do mês
+  equipe: MembroEquipe[];
+  semData: number; // linhas com dados mas sem DATA DA VENDA (não entram em mês nenhum)
+  meses: string[]; // do mais recente (mês atual) para o mais antigo
   atualizadoEm: string;
 };
 
+export const META_PADRAO = 10;
 const norm = (s: string) => clean(s).toUpperCase();
+const semAcento = (s: string) => norm(s).normalize("NFD").replace(/[̀-ͯ]/g, "");
 
-function headerIndex(header: string[]) {
-  const map = new Map<string, number>();
-  header.forEach((h, i) => {
-    const key = norm(h);
-    if (key && !map.has(key)) map.set(key, i); // primeira ocorrência (há colunas repetidas)
-  });
-  return (name: string) => map.get(norm(name)) ?? -1;
+/** Colunas da aba VENDAS (nome do cabeçalho, sem acento). */
+const COLUNAS = {
+  data: "DATA DA VENDA", vendedor: "VENDEDOR", pedido: "PEDIDO", loja: "LOJA DE ORIGEM DO CARRO", situacao: "SITUACAO",
+  cliente: "CLIENTE", veiculo: "VEICULO", placa: "PLACA", usado: "TRADE-IN", fin: "FINANCIAMENTO", ge: "GARANTIA ESTENDIDA",
+  seguro: "SEGURO", prevFaturamento: "PREVISAO DE FATURAMENTO", dataFaturamento: "DATA DO FATURAMENTO", observacoes: "OBSERVACAO",
+} as const;
+type Campo = keyof typeof COLUNAS;
+
+function indices(header: string[]): Record<Campo, number> {
+  const mapa = new Map(header.map((h, i) => [semAcento(h), i]));
+  const out = {} as Record<Campo, number>;
+  for (const [k, nome] of Object.entries(COLUNAS) as [Campo, string][]) out[k] = mapa.get(nome) ?? -1;
+  return out;
 }
 
-function parseObjetivos(rows: string[][]): Record<string, number> {
-  const out: Record<string, number> = {};
-  const start = rows.findIndex((r) => norm(r[0] ?? "") === "OBJETIVO" && norm(r[1] ?? "") === "VENDEDOR");
-  if (start < 0) return out;
-  for (const r of rows.slice(start + 1)) {
-    const vendedor = norm(r[1] ?? "");
-    if (!vendedor) break;
-    const objetivo = num(r[0]);
-    if (objetivo != null) out[vendedor] = objetivo;
-  }
+async function lerVendasBruto() {
+  const rows = await getValues(config.vendasId, range(config.vendasAba, "A1:O"));
+  const hi = rows.slice(0, 5).findIndex((r) => semAcento(r[0] ?? "").startsWith("DATA"));
+  if (hi < 0) throw new Error(`A aba "${config.vendasAba}" não tem o cabeçalho "DATA DA VENDA".`);
+  const idx = indices(rows[hi]);
+  if (idx.vendedor < 0 || idx.situacao < 0) throw new Error(`A aba "${config.vendasAba}" mudou: faltam as colunas VENDEDOR/SITUAÇÃO.`);
+  return { rows, hi, idx };
+}
+
+function lerEquipe(rows: string[][]): MembroEquipe[] {
+  const out: MembroEquipe[] = [];
+  rows.forEach((r, i) => {
+    if (i === 0 && semAcento(r[0] ?? "").startsWith("VENDEDOR")) return;
+    const nome = norm(r[0] ?? "");
+    if (!nome) return;
+    const objetivo = num(r[1] ?? "");
+    out.push({ nome, objetivo: objetivo && objetivo > 0 ? objetivo : META_PADRAO, ativo: !/^N/i.test(semAcento(r[2] ?? "SIM")), linha: i + 1 });
+  });
   return out;
 }
 
 async function load(): Promise<BaseVendas> {
-  const sheets = await listSheets(config.vendasId);
-  const titles = sheets.map((s) => s.title).filter((t) => norm(t) !== norm(config.painelAba));
-  const [painel, ...tabs] = await batchGet(config.vendasId, [
-    range(config.painelAba, "A1:L60"),
-    ...titles.map((t) => range(t, "A1:N")),
+  const [{ rows, hi, idx }, [equipeRows]] = await Promise.all([
+    lerVendasBruto(),
+    batchGet(config.vendasId, [range(config.equipeAba, "A1:C60")]).catch(() => [[]] as string[][][]),
   ]);
-
-  const porMes = new Map<string, { aba: string; vendas: Venda[] }>();
-  const abasIgnoradas: BaseVendas["abasIgnoradas"] = [];
-
-  titles.forEach((aba, t) => {
-    const rows = tabs[t];
-    const hi = rows.slice(0, 6).findIndex((r) => norm(r[0] ?? "") === "DATA");
-    if (hi < 0) return abasIgnoradas.push({ aba, motivo: "sem cabeçalho 'Data'" });
-    const col = headerIndex(rows[hi]);
-    const c = {
-      data: col("Data"), vendedor: col("Vendedor"), pedido: col("Pedido"), loja: col("Loja"),
-      situacao: col("Situação"), cliente: col("Cliente"), veiculo: col("Veiculo"), placa: col("Placa"),
-      ge: col("G.E"), fin: col("FIN"), usado: col("Usado"), seguro: col("SEGURO"),
-      prev: col("Prev. Faturamento"), obs: col("Observações"),
-    };
-    const get = (r: string[], i: number) => (i >= 0 ? clean(r[i]) : "");
-
-    const linhasIdx: number[] = [];
-    const linhas = rows.slice(hi + 1).filter((r, i) => {
-      const ok = !!(get(r, c.vendedor) || get(r, c.veiculo) || get(r, c.cliente));
-      if (ok) linhasIdx.push(hi + 1 + i);
-      return ok;
+  const equipe = lerEquipe(equipeRows ?? []);
+  const g = (r: string[], c: Campo) => (idx[c] >= 0 ? clean(r[idx[c]] ?? "") : "");
+  const vendas: Venda[] = [];
+  let semData = 0;
+  rows.forEach((r, i) => {
+    if (i <= hi) return;
+    if (!(g(r, "vendedor") || g(r, "veiculo") || g(r, "cliente"))) return;
+    const d = date(g(r, "data"));
+    if (!d) semData++;
+    const vendedor = norm(g(r, "vendedor")) || "SEM VENDEDOR";
+    let situacao = norm(g(r, "situacao")) || "SEM SITUAÇÃO";
+    if (situacao === "CANCELADA") situacao = "CANCELADO";
+    vendas.push({
+      id: `${config.vendasAba}#${i + 1}`, mes: d ? monthKey(d) : "", aba: config.vendasAba, linha: i + 1,
+      conta: CONTA.has(situacao), data: d ? d.toISOString() : null, vendedor, vendedorCurto: shortName(vendedor),
+      pedido: g(r, "pedido"), loja: norm(g(r, "loja")) || "—", situacao, faturada: situacao === "FATURADO",
+      cliente: g(r, "cliente"), veiculo: g(r, "veiculo"), placa: norm(g(r, "placa")),
+      ge: yesNo(g(r, "ge")), fin: yesNo(g(r, "fin")), usado: yesNo(g(r, "usado")), seguro: yesNo(g(r, "seguro")),
+      prevFaturamento: g(r, "prevFaturamento"), dataFaturamento: g(r, "dataFaturamento"), observacoes: g(r, "observacoes"),
     });
-    if (linhas.length === 0) {
-      // aba ainda vazia (ex.: criada no fim do mês anterior): o mês vem do nome ("DEZEMBRO 2026")
-      const mesNome = mesDoNome(aba);
-      if (mesNome && !porMes.has(mesNome)) { porMes.set(mesNome, { aba, vendas: [] }); return; }
-      return abasIgnoradas.push({ aba, motivo: "sem vendas lançadas" });
-    }
-
-    // mês da aba = mês mais frequente entre as datas lançadas
-    const contagem = new Map<string, number>();
-    for (const r of linhas) {
-      const d = date(get(r, c.data));
-      if (d) contagem.set(monthKey(d), (contagem.get(monthKey(d)) ?? 0) + 1);
-    }
-    const mes = [...contagem.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-    if (!mes) return abasIgnoradas.push({ aba, motivo: "datas não reconhecidas" });
-
-    const vendas: Venda[] = linhas.map((r, i) => {
-      const d = date(get(r, c.data));
-      const vendedor = norm(get(r, c.vendedor)) || "SEM VENDEDOR";
-      const situacao = norm(get(r, c.situacao)) || "SEM SITUAÇÃO";
-      return {
-        id: `${aba}#${linhasIdx[i] + 1}`,
-        mes,
-        aba,
-        linha: linhasIdx[i] + 1,
-        conta: CONTA.has(situacao),
-        data: d ? d.toISOString() : null,
-        vendedor,
-        vendedorCurto: shortName(vendedor),
-        pedido: get(r, c.pedido),
-        loja: norm(get(r, c.loja)) || "—",
-        situacao,
-        faturada: situacao === "FATURADO",
-        cliente: get(r, c.cliente),
-        veiculo: get(r, c.veiculo),
-        placa: norm(get(r, c.placa)),
-        ge: yesNo(get(r, c.ge)),
-        fin: yesNo(get(r, c.fin)),
-        usado: yesNo(get(r, c.usado)),
-        seguro: get(r, c.seguro),
-        prevFaturamento: get(r, c.prev),
-        observacoes: get(r, c.obs),
-      };
-    });
-
-    const atual = porMes.get(mes);
-    if (!atual || atual.vendas.length < vendas.length) {
-      if (atual) abasIgnoradas.push({ aba: atual.aba, motivo: `duplicada de ${mes} (usada a aba "${aba}")` });
-      porMes.set(mes, { aba, vendas });
-    } else {
-      abasIgnoradas.push({ aba, motivo: `duplicada de ${mes} (usada a aba "${atual.aba}")` });
-    }
   });
 
-  // só conta até o mês atual: a aba do mês seguinte (criada antes) fica escondida até o mês começar
+  // meses: o do calendário (mesmo sem vendas) e os anteriores que têm vendas; mês futuro só aparece quando começar
   const mesAtual = hojeISO().slice(0, 7);
-  const todos = [...porMes.keys()].sort().reverse();
-  const meses = todos.filter((m) => m <= mesAtual);
+  const meses = [...new Set([mesAtual, ...vendas.map((v) => v.mes).filter(Boolean)])].filter((m) => m <= mesAtual).sort().reverse();
+  const objetivos: Record<string, number> = {};
+  for (const m of equipe) if (m.ativo) objetivos[m.nome] = m.objetivo;
   return {
-    // vendas de mês futuro (data lançada adiantada) continuam editáveis, mas o mês só aparece quando começar
-    vendas: todos.flatMap((m) => porMes.get(m)!.vendas),
-    abas: meses.map((m) => ({ aba: porMes.get(m)!.aba, mes: m, vendas: porMes.get(m)!.vendas.length })),
-    abasIgnoradas,
-    objetivos: parseObjetivos(painel),
+    vendas: [...vendas].sort((a, b) => (b.data ?? "").localeCompare(a.data ?? "") || b.linha - a.linha),
+    abas: meses.map((mes) => ({ aba: config.vendasAba, mes, vendas: vendas.filter((v) => v.mes === mes).length })),
+    abasIgnoradas: [],
+    objetivos,
+    equipe,
+    semData,
     meses,
     atualizadoEm: new Date().toISOString(),
   };
@@ -192,8 +166,6 @@ export type LinhaRanking = {
   atingimento: number | null;
 };
 
-const temSeguro = (s: string) => !!s && !/^(n[aã]o|-)$/i.test(s);
-
 export function ranking(vendas: Venda[], objetivos: Record<string, number> = {}, incluirSemVendas = false): LinhaRanking[] {
   const rows = new Map<string, LinhaRanking>();
   const linha = (vendedor: string): LinhaRanking => {
@@ -215,7 +187,7 @@ export function ranking(vendas: Venda[], objetivos: Record<string, number> = {},
     if (v.fin) r.fin++;
     if (v.ge) r.ge++;
     if (v.usado) r.usado++;
-    if (temSeguro(v.seguro)) r.seguro++;
+    if (v.seguro) r.seguro++;
     if (v.loja.includes("HARLEY")) r.harley++;
     if (v.loja.includes("TRIUMPH")) r.triumph++;
   }
@@ -237,14 +209,14 @@ export function resumo(todas: Venda[]) {
     fin: vendas.filter((v) => v.fin).length,
     ge: vendas.filter((v) => v.ge).length,
     usado: vendas.filter((v) => v.usado).length,
-    seguro: vendas.filter((v) => temSeguro(v.seguro)).length,
+    seguro: vendas.filter((v) => v.seguro).length,
     porSituacao: [...porSituacao.entries()].sort((a, b) => b[1] - a[1]),
     porLoja: [...porLoja.entries()].sort((a, b) => b[1] - a[1]),
   };
 }
 
 // ---------------------------------------------------------------------------
-// Escrita
+// Escrita (somente células de digitação da aba VENDAS)
 // ---------------------------------------------------------------------------
 
 export type VendaInput = {
@@ -259,155 +231,114 @@ export type VendaInput = {
   ge: boolean;
   fin: boolean;
   usado: boolean;
-  seguro: string;
-  prevFaturamento: string;
+  seguro: boolean;
+  prevFaturamento: string; // dd/mm/aaaa ou ""
+  dataFaturamento: string; // dd/mm/aaaa ou ""
   observacoes: string;
 };
 
-const CAMPOS_PLANILHA: [keyof VendaInput, string][] = [
-  ["data", "Data"], ["vendedor", "Vendedor"], ["pedido", "Pedido"], ["loja", "Loja"], ["situacao", "Situação"],
-  ["cliente", "Cliente"], ["veiculo", "Veiculo"], ["placa", "Placa"], ["ge", "G.E"], ["fin", "FIN"], ["usado", "Usado"],
-  ["seguro", "SEGURO"], ["prevFaturamento", "Prev. Faturamento"], ["observacoes", "Observações"],
-];
+const hojeBR = () => hojeISO().split("-").reverse().join("/");
 
-/** "DEZEMBRO 2026" → "2026-12" */
-function mesDoNome(aba: string): string | null {
-  const m = norm(aba).match(/^([A-ZÇ]+)\s*(?:DE\s*)?(\d{4})$/);
-  if (!m) return null;
-  const i = MESES_NOME.indexOf(m[1]);
-  return i >= 0 ? `${m[2]}-${String(i + 1).padStart(2, "0")}` : null;
-}
-
-const MESES_NOME = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
-
-function paraCelula(campo: keyof VendaInput, v: VendaInput[keyof VendaInput]): string | number {
+function paraCelula(campo: Campo, v: VendaInput[keyof VendaInput]): string | number {
   if (typeof v === "boolean") return v ? "SIM" : "NÃO";
   const t = clean(String(v ?? ""));
   if (["vendedor", "loja", "situacao", "cliente", "veiculo", "placa"].includes(campo)) return valorSeguro(t.toUpperCase());
   if (campo === "pedido" && /^\d+$/.test(t)) return Number(t);
-  return valorSeguro(t);
+  return valorSeguro(t); // datas vão como "dd/mm/aaaa": a planilha (pt_BR) grava como data
 }
 
-async function lerAbaVendas(aba: string) {
-  const rows = (await batchGet(config.vendasId, [range(aba, "A1:N")]))[0];
-  const hi = rows.slice(0, 6).findIndex((r) => clean(r[0] ?? "").toUpperCase() === "DATA");
-  if (hi < 0) throw new Error(`A aba "${aba}" não tem o cabeçalho "Data".`);
-  return { rows, hi, col: indiceCabecalho(rows[hi]) };
+async function validar(v: VendaInput) {
+  if (!SITUACOES.some((s) => s.id === v.situacao)) throw new Error("Situação inválida.");
+  const base = await getVendas();
+  const membro = base.equipe.find((m) => m.nome === norm(v.vendedor));
+  if (!membro) throw new Error(`"${v.vendedor}" não está na aba EQUIPE da planilha de vendas. Cadastre lá primeiro.`);
+  for (const [nome, d] of [["data da venda", v.data], ["previsão de faturamento", v.prevFaturamento], ["data do faturamento", v.dataFaturamento]] as const) {
+    if (d && !date(d)) throw new Error(`Data inválida em ${nome}.`);
+  }
+  // instrução da planilha: venda faturada leva a DATA DO FATURAMENTO
+  if (v.situacao === "FATURADO" && !v.dataFaturamento) v.dataFaturamento = hojeBR();
 }
 
-/** Cria a aba de um mês novo duplicando a aba mais recente (mantém fórmulas e formatação, limpa os lançamentos). */
-async function criarAbaDoMes(mes: string, abaModelo: string): Promise<string> {
-  const [y, m] = mes.split("-").map(Number);
-  const nome = `${MESES_NOME[m - 1]} ${y}`;
-  const abas = await listSheets(config.vendasId);
-  if (abas.some((a) => a.title === nome)) return nome;
-  const modelo = abas.find((a) => a.title === abaModelo);
-  if (!modelo) throw new Error(`Aba modelo "${abaModelo}" não encontrada.`);
-  const idx = abas.findIndex((a) => a.title === abaModelo);
-  await batchUpdateSheet(config.vendasId, [{ duplicateSheet: { sourceSheetId: modelo.sheetId, insertSheetIndex: idx, newSheetName: nome } }]);
-
-  const { hi, rows } = await lerAbaVendas(nome);
-  const formulas = await colunasComFormula(config.vendasId, nome, hi + 2, hi + 40);
-  const ultimaCol = rows[hi].length - 1;
-  const limpar: string[] = [];
-  for (let c = 0; c <= ultimaCol; c++) if (!formulas.has(c)) limpar.push(range(nome, `${colLetra(c)}${hi + 2}:${colLetra(c)}`));
-  await batchClear(config.vendasId, limpar);
-  return nome;
+function celulas(idx: Record<Campo, number>, linha: number, v: VendaInput, atual?: string[]) {
+  return (Object.keys(COLUNAS) as Campo[])
+    .filter((k) => idx[k] >= 0)
+    .map((k) => [k, paraCelula(k, v[k as keyof VendaInput])] as const)
+    .filter(([k, val]) => !atual || clean(atual[idx[k]] ?? "") !== clean(String(val)))
+    .map(([k, val]) => ({ range: range(config.vendasAba, `${colLetra(idx[k])}${linha}`), values: [[val]] }));
 }
 
 export async function lancarVenda(v: VendaInput): Promise<{ aba: string; linha: number }> {
-  const d = date(v.data);
-  if (!d) throw new Error("Data inválida.");
+  if (!date(v.data)) throw new Error("Data inválida.");
   invalidate("vendas");
-  const base = await getVendas();
-  const mes = monthKey(d);
-  let aba = base.abas.find((a) => a.mes === mes)?.aba;
-  if (!aba) {
-    if (!base.abas.length || mes < base.meses[0]) throw new Error(`Não existe aba para ${mes.split("-").reverse().join("/")} na planilha.`);
-    aba = await criarAbaDoMes(mes, base.abas[0].aba);
-  }
-
-  const { rows, hi, col } = await lerAbaVendas(aba);
-  const chave = ["Data", "Vendedor", "Pedido", "Cliente", "Veiculo", "Placa"].map(col).filter((i) => i >= 0);
+  await validar(v);
+  const { rows, hi, idx } = await lerVendasBruto();
+  const chave = (["data", "vendedor", "pedido", "cliente", "veiculo", "placa", "situacao"] as Campo[]).map((k) => idx[k]).filter((i) => i >= 0);
   let alvo = rows.findIndex((r, i) => i > hi && chave.every((c) => !clean(r[c] ?? "")));
   if (alvo < 0) alvo = Math.max(rows.length, hi + 1);
   const linha = alvo + 1;
-
-  // nunca escreve em colunas de fórmula; se a linha nova não tiver as fórmulas, copia da linha de cima
-  const formulas = await colunasComFormula(config.vendasId, aba, hi + 2, Math.max(hi + 2, linha - 1));
-  const alvoFormulas = (await getFormulas(config.vendasId, range(aba, `A${linha}:AZ${linha}`)))[0] ?? [];
-  const faltando = [...formulas].filter((c) => !(alvoFormulas[c] ?? "").startsWith("="));
-  if (faltando.length && linha - 1 > hi + 1) {
-    const sheet = (await listSheets(config.vendasId)).find((a) => a.title === aba)!;
-    await batchUpdateSheet(config.vendasId, reqCopiarFormulas(sheet.sheetId, linha - 2, linha - 1, faltando));
-  }
-
-  const data = CAMPOS_PLANILHA.map(([k, nome]) => [col(nome), paraCelula(k, v[k])] as const)
-    .filter(([c]) => c >= 0 && !formulas.has(c))
-    .map(([c, val]) => ({ range: range(aba!, `${colLetra(c)}${linha}`), values: [[val]] }));
-  await batchUpdateValues(config.vendasId, data);
+  await batchUpdateValues(config.vendasId, celulas(idx, linha, v));
   invalidate("vendas");
-  return { aba, linha };
+  return { aba: config.vendasAba, linha };
 }
 
 export type Original = { vendedor: string; veiculo: string; pedido: string };
 
-async function conferirLinha(aba: string, linha: number, original: Original) {
-  const { rows, col } = await lerAbaVendas(aba);
+async function conferirLinha(linha: number, original: Original) {
+  const { rows, idx } = await lerVendasBruto();
   const r = rows[linha - 1] ?? [];
-  const g = (n: string) => clean(r[col(n)] ?? "").toUpperCase();
-  if (g("Vendedor") !== clean(original.vendedor).toUpperCase() || g("Veiculo") !== clean(original.veiculo).toUpperCase() || g("Pedido") !== clean(original.pedido).toUpperCase()) {
+  const g = (k: Campo) => (idx[k] >= 0 ? norm(r[idx[k]] ?? "") : "");
+  if (g("vendedor") !== norm(original.vendedor) || g("veiculo") !== norm(original.veiculo) || g("pedido") !== norm(original.pedido)) {
     throw new Error("Esta venda foi alterada ou movida na planilha. Atualize a página e tente de novo.");
   }
-  return { r, col };
+  return { r, idx };
 }
 
-export async function editarVenda(aba: string, linha: number, original: Original, v: VendaInput) {
-  const { r, col } = await conferirLinha(aba, linha, original);
-  const formulas = await colunasComFormula(config.vendasId, aba, linha, linha);
-  const data = CAMPOS_PLANILHA.map(([k, nome]) => [col(nome), paraCelula(k, v[k])] as const)
-    .filter(([c, val]) => c >= 0 && !formulas.has(c) && clean(r[c] ?? "") !== clean(String(val)))
-    .map(([c, val]) => ({ range: range(aba, `${colLetra(c)}${linha}`), values: [[val]] }));
-  await batchUpdateValues(config.vendasId, data);
+export async function editarVenda(_aba: string, linha: number, original: Original, v: VendaInput) {
+  invalidate("vendas");
+  await validar(v);
+  const { r, idx } = await conferirLinha(linha, original);
+  await batchUpdateValues(config.vendasId, celulas(idx, linha, v, r));
   invalidate("vendas");
 }
 
-export async function excluirVenda(aba: string, linha: number, original: Original) {
-  const { col } = await conferirLinha(aba, linha, original);
-  const formulas = await colunasComFormula(config.vendasId, aba, linha, linha);
-  const cols = CAMPOS_PLANILHA.map(([, nome]) => col(nome)).filter((c) => c >= 0 && !formulas.has(c));
-  await batchClear(config.vendasId, cols.map((c) => range(aba, `${colLetra(c)}${linha}`)));
+/** Instrução da planilha: venda desfeita não se apaga — a SITUAÇÃO vira CANCELADO. */
+export async function excluirVenda(_aba: string, linha: number, original: Original) {
+  const { idx } = await conferirLinha(linha, original);
+  await batchUpdateValues(config.vendasId, [{ range: range(config.vendasAba, `${colLetra(idx.situacao)}${linha}`), values: [["CANCELADO"]] }]);
   invalidate("vendas");
 }
 
+/** Vendedores para lançar venda: os ativos da aba EQUIPE. */
 export async function listaVendedores(): Promise<string[]> {
   const base = await getVendas();
-  const recentes = new Set(base.meses.slice(0, 3));
-  const nomes = new Set<string>(Object.keys(base.objetivos));
-  base.vendas.filter((v) => recentes.has(v.mes) && v.vendedor !== "SEM VENDEDOR").forEach((v) => nomes.add(v.vendedor));
-  return [...nomes].sort();
+  return base.equipe.filter((m) => m.ativo).map((m) => m.nome).sort();
+}
+
+/** Atualiza o OBJETIVO DO MÊS de um vendedor na aba EQUIPE (permitido pelas instruções da planilha). */
+export async function salvarMetaEquipe(vendedor: string, meta: number): Promise<void> {
+  invalidate("vendas");
+  const base = await getVendas();
+  const m = base.equipe.find((x) => x.nome === norm(vendedor));
+  if (!m) throw new Error(`"${vendedor}" não está na aba EQUIPE.`);
+  if (m.objetivo === meta) return;
+  await batchUpdateValues(config.vendasId, [{ range: range(config.equipeAba, `B${m.linha}`), values: [[meta]] }]);
+  invalidate("vendas");
 }
 
 /**
- * Automação de virada de mês (rodada todo dia pelo agendador da Vercel): nos últimos 3 dias do mês,
- * cria a aba do mês seguinte duplicando a do mês atual (fórmulas e formatação, lançamentos limpos).
- * O app só passa a mostrar o mês novo quando ele começa.
+ * Virada de mês (agendador diário da Vercel): nos 3 primeiros dias do mês, se a data de referência
+ * do PAINEL GERAL (L3) ainda for de outro mês, troca para o dia 1º do mês atual — exatamente o passo
+ * que a aba INSTRUÇÕES manda fazer à mão. Não cria abas nem mexe em fórmulas.
  */
-export async function prepararProximoMes(forcar = false): Promise<{ criada: string | null; aba: string | null; motivo: string }> {
+export async function atualizarMesReferencia(forcar = false): Promise<{ alterado: boolean; de: string; para: string; motivo: string }> {
   const hoje = hojeISO();
   const [y, m, d] = hoje.split("-").map(Number);
-  const ultimo = new Date(y, m, 0).getDate();
-  if (!forcar && d < ultimo - 2) return { criada: null, aba: null, motivo: `ainda faltam ${ultimo - d} dias para o fim do mês` };
-  const prox = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
-  const nome = `${MESES_NOME[Number(prox.slice(5)) - 1]} ${prox.slice(0, 4)}`;
-  const abas = await listSheets(config.vendasId);
-  const existente = abas.find((a) => norm(a.title) === nome);
-  if (existente) return { criada: null, aba: existente.title, motivo: "a aba do próximo mês já existe" };
-  invalidate("vendas");
-  const base = await getVendas();
-  const modelo = base.abas.find((a) => a.mes === hoje.slice(0, 7))?.aba ?? base.abas[0]?.aba;
-  if (!modelo) throw new Error("Nenhuma aba de mês para usar como modelo.");
-  const aba = await criarAbaDoMes(prox, modelo);
-  invalidate("vendas");
-  return { criada: aba, aba, motivo: `criada a partir de "${modelo}"` };
+  const para = `01/${String(m).padStart(2, "0")}/${y}`;
+  const celula = range(config.painelAba, "L3");
+  const de = clean((await getValues(config.vendasId, celula))[0]?.[0] ?? "");
+  const atual = date(de);
+  if (atual && atual.getFullYear() === y && atual.getMonth() + 1 === m) return { alterado: false, de, para, motivo: "já está no mês atual" };
+  if (!forcar && d > 3) return { alterado: false, de, para, motivo: "fora dos 3 primeiros dias do mês (troca manual)" };
+  await batchUpdateValues(config.vendasId, [{ range: celula, values: [[para]] }]);
+  return { alterado: true, de, para, motivo: "mês de referência do PAINEL GERAL atualizado" };
 }

@@ -5,6 +5,7 @@ export const SIT: Record<string, { txt: string; tom: string }> = {
   FATURADO: { txt: "faturado", tom: "ok" },
   ESTOQUE: { txt: "aguardando faturar", tom: "warn" },
   TRANSFERENCIA: { txt: "transferência", tom: "" },
+  CANCELADO: { txt: "cancelado", tom: "bad" },
   CANCELADA: { txt: "cancelada", tom: "bad" },
 };
 

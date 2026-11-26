@@ -67,7 +67,7 @@ export default async function MetaPage({ searchParams }: { searchParams: Promise
   const indicador = (f: (x: (typeof amostra)[number]) => boolean) => ({ eu: taxa(minhas3.filter(f).length, minhas3.length), equipe: taxa(amostra.filter(f).length, amostra.length) });
   const qualidade = {
     fin: indicador((x) => x.fin), ge: indicador((x) => x.ge), usado: indicador((x) => x.usado),
-    seguro: indicador((x) => !!x.seguro && !/^(n[aã]o|-)$/i.test(x.seguro)),
+    seguro: indicador((x) => x.seguro),
   };
 
   // histórico (6 meses corridos)

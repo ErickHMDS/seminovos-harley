@@ -19,7 +19,7 @@ export default async function EditarVendaPage({ searchParams }: { searchParams: 
   const vm: VendaVM = {
     aba: v.aba, linha: v.linha, mes: v.mes, data: fmt.date(v.data ? new Date(v.data) : null).replace("—", ""), vendedor: v.vendedor, pedido: v.pedido,
     loja: v.loja, situacao: v.situacao, cliente: v.cliente, veiculo: v.veiculo, placa: v.placa, ge: v.ge, fin: v.fin, usado: v.usado,
-    seguro: v.seguro, prevFaturamento: v.prevFaturamento, observacoes: v.observacoes,
+    seguro: v.seguro, prevFaturamento: v.prevFaturamento, dataFaturamento: v.dataFaturamento, observacoes: v.observacoes,
   };
   return (
     <>
@@ -27,7 +27,7 @@ export default async function EditarVendaPage({ searchParams }: { searchParams: 
         <div>
           {perfil === "vendedor" ? <Link href="/meta" className="back-link">← Minha meta</Link> : <Link href={`/ranking?mes=${v.mes}`} className="back-link">← Ranking</Link>}
           <h1>Editar venda</h1>
-          <p>Aba “{v.aba.trim()}”, linha {v.linha}.</p>
+          <p>Aba “{v.aba.trim()}”, linha {v.linha}{v.situacao === "CANCELADO" ? " · cancelada (não conta)" : ""}.</p>
         </div>
       </div>
       <VendaForm venda={vm} vendedores={vendedores} motos={est.motos.map((m) => ({ placa: m.placa, modelo: m.modelo }))} hoje={hojeISO()} podeExcluir={perfil === "gestor"} vendedorFixo={fixo} />

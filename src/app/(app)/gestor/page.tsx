@@ -205,9 +205,9 @@ export default async function GestorPage() {
         </section>
       </div>
 
-      {base.abasIgnoradas.some((a) => a.motivo.startsWith("duplicada")) && (
+      {base.semData > 0 && (
         <p className="faint" style={{ fontSize: 12, marginTop: 24 }}>
-          Abas ignoradas por repetirem um mês já lido: {base.abasIgnoradas.filter((a) => a.motivo.startsWith("duplicada")).map((a) => `“${a.aba.trim()}”`).join(", ")}.
+          {base.semData} linha(s) da aba VENDAS estão sem DATA DA VENDA válida e não entram em nenhum mês — confira na planilha.
         </p>
       )}
     </>

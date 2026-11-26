@@ -18,7 +18,7 @@ export default async function CadastroPage() {
   const mes = base.meses[0];
   const rank = ranking(base.vendas.filter((v) => v.mes === mes), objs, true);
   const vendedores: VendedorVM[] = rank.map((l, i) => ({ nome: l.vendedor, curto: l.nome, pos: i + 1, vendas: l.vendas, objetivo: l.objetivo }));
-  const pessoas: PessoaVM[] = usuarios.map((u) => ({ id: u.id, nome: u.nome, perfil: u.perfil, vendedor: u.vendedor, telefone: u.telefone, ativo: u.ativo, atualizadoEm: u.atualizadoEm, meta: u.meta }));
+  const pessoas: PessoaVM[] = usuarios.map((u) => ({ id: u.id, nome: u.nome, perfil: u.perfil, vendedor: u.vendedor, telefone: u.telefone, ativo: u.ativo, atualizadoEm: u.atualizadoEm, meta: base.objetivos[u.vendedor] ?? u.meta }));
   const h = await headers();
   const origem = `${(h.get("x-forwarded-proto") ?? "https").split(",")[0]}://${h.get("x-forwarded-host") ?? h.get("host") ?? ""}`;
   return (

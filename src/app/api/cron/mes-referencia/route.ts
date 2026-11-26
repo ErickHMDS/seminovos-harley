@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { prepararProximoMes } from "@/lib/vendas";
+import { atualizarMesReferencia } from "@/lib/vendas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Chamado todo dia pelo agendador da Vercel (vercel.json → crons). Nos últimos 3 dias do mês cria a aba
- * do mês seguinte na planilha MOTOS 2026. Protegido pelo CRON_SECRET (a Vercel envia
+ * Chamado todo dia pelo agendador da Vercel (vercel.json → crons). Nos 3 primeiros dias do mês troca a
+ * data de referência do PAINEL GERAL (célula L3) para o dia 1º do mês atual — a planilha não usa mais abas por mês. Protegido pelo CRON_SECRET (a Vercel envia
  * "Authorization: Bearer <CRON_SECRET>"); sem CRON_SECRET configurado, aceita só o agendador da Vercel.
  */
 export async function GET(req: Request) {
@@ -16,11 +16,11 @@ export async function GET(req: Request) {
   if (segredo ? auth !== `Bearer ${segredo}` : !agendador) return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   const forcar = new URL(req.url).searchParams.get("forcar") === "1" && !!segredo;
   try {
-    const r = await prepararProximoMes(forcar);
-    console.log("[aba-mes]", r);
+    const r = await atualizarMesReferencia(forcar);
+    console.log("[mes-referencia]", r);
     return NextResponse.json(r);
   } catch (e) {
-    console.error("[aba-mes] falhou", e);
+    console.error("[mes-referencia] falhou", e);
     return NextResponse.json({ erro: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 }

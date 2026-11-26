@@ -3,6 +3,12 @@ import { PERFIS, type Perfil } from "@/lib/auth";
 import { salvarConfiguracao } from "@/lib/configuracoes";
 import { exigirPerfil } from "@/lib/sessao";
 import { atualizarUsuario, criarUsuario, gerarSenha, redefinirSenha } from "@/lib/usuarios";
+import { salvarMetaEquipe } from "@/lib/vendas";
+
+/** A meta do vendedor mora na aba EQUIPE da planilha de vendas (mesma fonte do PAINEL GERAL). */
+async function metaNaEquipe(d: { perfil: Perfil; vendedor: string; meta: number }) {
+  if (d.perfil === "vendedor" && d.vendedor) await salvarMetaEquipe(d.vendedor, d.meta);
+}
 
 export type CadState = { erro?: string; ok?: number; senha?: string; nome?: string; telefone?: string };
 
@@ -25,7 +31,7 @@ export async function criarPessoa(_: CadState, form: FormData): Promise<CadState
   const senha = String(form.get("senha") ?? "").trim();
   if (!d.nome) return { erro: "Informe o nome." };
   if (d.perfil === "vendedor" && !d.vendedor) return { erro: "Escolha o nome do vendedor como aparece na planilha de vendas (para ligar ranking e leads)." };
-  try { await criarUsuario(d, senha); } catch (e) { return falha(e); }
+  try { await criarUsuario(d, senha); await metaNaEquipe(d); } catch (e) { return falha(e); }
   return { ok: Date.now(), senha, nome: d.nome, telefone: d.telefone };
 }
 
@@ -33,7 +39,7 @@ export async function editarPessoa(_: CadState, form: FormData): Promise<CadStat
   await exigirPerfil("/cadastro");
   const d = ler(form);
   if (!d.nome) return { erro: "Informe o nome." };
-  try { await atualizarUsuario(String(form.get("id")), { ...d, ativo: form.get("ativo") === "on" }); } catch (e) { return falha(e); }
+  try { await atualizarUsuario(String(form.get("id")), { ...d, ativo: form.get("ativo") === "on" }); await metaNaEquipe(d); } catch (e) { return falha(e); }
   return { ok: Date.now() };
 }
 

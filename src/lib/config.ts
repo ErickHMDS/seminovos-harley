@@ -19,6 +19,8 @@ export const config = {
   leadsAba: process.env.LEADS_ABA?.trim() || "Leads",
   cobrancasAba: process.env.COBRANCAS_ABA?.trim() || "Cobranças",
   fotosAba: process.env.FOTOS_ABA?.trim() || "Fotos",
+  vendasAba: process.env.VENDAS_ABA?.trim() || "VENDAS", // aba única com todas as vendas do ano
+  equipeAba: process.env.EQUIPE_ABA?.trim() || "EQUIPE", // vendedores, objetivo do mês e ativo
   painelAba: process.env.PAINEL_ABA?.trim() || "PAINEL GERAL",
   coordenadorEmail: process.env.COORDENADOR_EMAIL?.trim() ?? "",
   /** segundos que os dados lidos ficam em memória antes de reler a planilha */

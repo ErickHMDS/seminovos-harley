@@ -17,7 +17,7 @@ const LOJAS = [
   { id: "TRIUMPH", label: "Triumph" },
 ];
 
-const SALVO: Record<string, string> = { lancada: "Venda lançada na planilha.", editada: "Venda atualizada.", excluida: "Lançamento excluído." };
+const SALVO: Record<string, string> = { lancada: "Venda lançada na planilha.", editada: "Venda atualizada.", cancelada: "Venda marcada como CANCELADO na planilha (a linha fica, mas não conta)." };
 
 
 export default async function RankingPage({ searchParams }: { searchParams: Promise<{ mes?: string; loja?: string; salvo?: string }> }) {

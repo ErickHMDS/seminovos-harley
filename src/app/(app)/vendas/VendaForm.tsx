@@ -6,14 +6,14 @@ import { apagarVenda, salvarVenda, type VendaState } from "./actions";
 
 export type VendaVM = {
   aba: string; linha: number; mes: string; data: string; vendedor: string; pedido: string; loja: string; situacao: string; cliente: string;
-  veiculo: string; placa: string; ge: boolean; fin: boolean; usado: boolean; seguro: string; prevFaturamento: string; observacoes: string;
+  veiculo: string; placa: string; ge: boolean; fin: boolean; usado: boolean; seguro: boolean; prevFaturamento: string; dataFaturamento: string; observacoes: string;
 };
 
 const SITUACOES = [
   { id: "ESTOQUE", label: "Vendida", sub: "aguardando faturar" },
   { id: "FATURADO", label: "Faturado", sub: "concluída" },
   { id: "TRANSFERENCIA", label: "Transferência", sub: "" },
-  { id: "CANCELADA", label: "Cancelada", sub: "não conta" },
+  { id: "CANCELADO", label: "Cancelado", sub: "não conta" },
 ];
 
 function Toggle({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
@@ -43,7 +43,7 @@ export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir, vendedo
     router.refresh();
   }, [state.destino, state.n, router]);
 
-  const iso = (br: string) => { const m = br.match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : ""; };
+  const iso = (br: string) => { const m = (br ?? "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : ""; };
   const situacaoInicial = venda?.situacao && SITUACOES.some((s) => s.id === venda.situacao) ? venda.situacao : "ESTOQUE";
   const lojaInicial = venda?.loja && ["HARLEY", "TRIUMPH"].includes(venda.loja) ? venda.loja : "HARLEY";
 
@@ -68,7 +68,7 @@ export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir, vendedo
           <h2 className="sec-title">Situação</h2>
           <div className="seg-grid">
             {SITUACOES.map((s) => (
-              <label key={s.id} className={`seg-card ${s.id === "CANCELADA" ? "seg-bad" : ""}`}>
+              <label key={s.id} className={`seg-card ${s.id === "CANCELADO" ? "seg-bad" : ""}`}>
                 <input type="radio" name="situacao" value={s.id} defaultChecked={s.id === situacaoInicial} />
                 <strong>{s.label}</strong>{s.sub && <small>{s.sub}</small>}
               </label>
@@ -116,19 +116,20 @@ export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir, vendedo
           <div className="switches">
             <Toggle name="fin" label="Financiamento" defaultChecked={venda?.fin ?? false} />
             <Toggle name="ge" label="Garantia estendida" defaultChecked={venda?.ge ?? false} />
-            <Toggle name="usado" label="Usado na troca" defaultChecked={venda?.usado ?? false} />
+            <Toggle name="usado" label="Trade-in (usado na troca)" defaultChecked={venda?.usado ?? false} />
+            <Toggle name="seguro" label="Seguro" defaultChecked={venda?.seguro ?? false} />
           </div>
         </section>
 
         <section className="sec">
           <h2 className="sec-title">Mais detalhes</h2>
           <div className="form-grid">
+            <div className="field"><label htmlFor="prevFaturamento">Previsão de faturamento</label><input id="prevFaturamento" name="prevFaturamento" type="date" className="input" defaultValue={venda ? iso(venda.prevFaturamento) : ""} /></div>
             <div className="field">
-              <label htmlFor="seguro">Seguro</label>
-              <input id="seguro" name="seguro" className="input" list="seguros" defaultValue={venda?.seguro} placeholder="—" />
-              <datalist id="seguros"><option value="INDICADO" /><option value="VENDIDO" /><option value="NÃO" /></datalist>
+              <label htmlFor="dataFaturamento">Data do faturamento</label>
+              <input id="dataFaturamento" name="dataFaturamento" type="date" className="input" defaultValue={venda ? iso(venda.dataFaturamento) : ""} />
+              <small className="faint">Se marcar Faturado e deixar vazio, grava a data de hoje.</small>
             </div>
-            <div className="field"><label htmlFor="prevFaturamento">Prev. faturamento</label><input id="prevFaturamento" name="prevFaturamento" className="input" defaultValue={venda?.prevFaturamento} /></div>
             <div className="field wide"><label htmlFor="observacoes">Observações</label><textarea id="observacoes" name="observacoes" className="input" defaultValue={venda?.observacoes} /></div>
           </div>
         </section>
@@ -137,15 +138,15 @@ export function VendaForm({ venda, vendedores, motos, hoje, podeExcluir, vendedo
       {(state.erro || erroEx) && <div className="alert bad" role="alert">{state.erro || erroEx}</div>}
 
       <div className="action-bar">
-        {venda && podeExcluir && (
+        {venda && podeExcluir && venda.situacao !== "CANCELADO" && (
           confirmar ? (
             <button type="button" className="btn small danger" disabled={excluindo}
               onClick={() => startExcluir(async () => {
                 const r = await apagarVenda(venda.aba, venda.linha, { vendedor: venda.vendedor, veiculo: venda.veiculo, pedido: venda.pedido }, venda.mes);
                 if (r.erro) setErroEx(r.erro); else if (r.destino) { router.replace(r.destino); router.refresh(); }
-              })}>{excluindo ? "Excluindo…" : "Confirmar exclusão"}</button>
+              })}>{excluindo ? "Cancelando…" : "Confirmar cancelamento"}</button>
           ) : (
-            <button type="button" className="btn small ghost" onClick={() => setConfirmar(true)}>Excluir</button>
+            <button type="button" className="btn small ghost" onClick={() => setConfirmar(true)} title="Marca a venda como CANCELADO na planilha (a linha não é apagada)">Cancelar venda</button>
           )
         )}
         <div className="action-bar-main">

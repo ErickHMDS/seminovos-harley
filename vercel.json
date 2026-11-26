@@ -6,7 +6,7 @@
   "outputDirectory": ".next",
   "crons": [
     {
-      "path": "/api/cron/aba-mes",
+      "path": "/api/cron/mes-referencia",
       "schedule": "0 13 * * *"
     }
   ]
